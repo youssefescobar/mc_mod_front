@@ -1,7 +1,8 @@
 import { toPng } from 'html-to-image'
-import { Copy, Download, QrCode, Share2, ShieldCheck } from 'lucide-react'
+import { Copy, Download, QrCode, Share2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import logo from '@/assets/logo.jpeg'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -94,11 +95,36 @@ export function ShareGroupCodeDialog({
     setStatus(null)
 
     try {
+      const node = posterRef.current
+      const previousStyle = node.getAttribute('style')
+
+      // Put the poster in a capture-safe position only during export.
+      node.style.position = 'fixed'
+      node.style.left = '42%'
+      node.style.top = '16px'
+      node.style.transform = 'translateX(-50%)'
+      node.style.opacity = '1'
+      node.style.zIndex = '-1'
+      node.style.pointerEvents = 'none'
+
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve())
+        })
+      })
+
       const dataUrl = await toPng(posterRef.current, {
         cacheBust: true,
         pixelRatio: 2,
         backgroundColor: '#ffffff',
       })
+
+      if (previousStyle === null) {
+        node.removeAttribute('style')
+      } else {
+        node.setAttribute('style', previousStyle)
+      }
+
       const link = document.createElement('a')
       link.download = `invite_${groupCode}.png`
       link.href = dataUrl
@@ -107,6 +133,10 @@ export function ShareGroupCodeDialog({
     } catch {
       setStatus('Download failed')
     } finally {
+      const node = posterRef.current
+      if (node) {
+        node.removeAttribute('style')
+      }
       setIsDownloading(false)
     }
   }
@@ -121,22 +151,24 @@ export function ShareGroupCodeDialog({
           </Button>
         </DialogTrigger>
       ) : null}
-      <DialogContent className="w-[calc(100vw-1rem)] max-w-[420px] max-h-[calc(100dvh-1rem)] overflow-y-auto">
+      <DialogContent className="w-[calc(100vw-1rem)] max-w-[420px]">
         <DialogHeader>
           <DialogTitle>{t('share.title')}</DialogTitle>
           <DialogDescription>{t('share.description')}</DialogDescription>
         </DialogHeader>
 
+        {/* Hidden poster used for download image generation */}
         <div
           ref={posterRef}
-          className="mx-auto w-full max-w-[340px] rounded-2xl bg-white px-4 py-5 text-center sm:max-w-[380px] sm:px-6 sm:py-6"
+          className="pointer-events-none fixed -left-[9999px] top-0 flex w-[340px] flex-col items-center rounded-2xl bg-white px-4 py-5 text-center sm:w-[380px] sm:px-6 sm:py-6"
+          aria-hidden="true"
         >
-          <div className="mx-auto grid size-14 place-items-center rounded-full bg-[#F0F0F8] sm:size-16">
-            <ShieldCheck className="size-7 text-[#F97316] sm:size-8" />
+          <div className="mx-auto grid size-14 place-items-center overflow-hidden rounded-full bg-[#F0F0F8] sm:size-16">
+            <img src={logo} alt="Munawwara Care" className="size-full object-cover" />
           </div>
 
-          <h3 className="mt-4 text-xl font-bold text-[#1A1A4E] sm:text-2xl">{groupName}</h3>
-          <p className="mt-1 text-sm text-[#64748B]">Moderated by {displayModerator}</p>
+          <h3 className="mt-4 max-w-[300px] text-xl font-bold text-[#1A1A4E] sm:max-w-[340px] sm:text-2xl">{groupName}</h3>
+          <p className="mt-1 max-w-[300px] text-sm text-[#64748B] sm:max-w-[340px]">Moderated by {displayModerator}</p>
 
           <p className="mt-5 text-xs font-bold tracking-[0.2em] text-[#1A1A4E] sm:mt-6 sm:text-sm">SCAN TO JOIN</p>
 
@@ -156,7 +188,7 @@ export function ShareGroupCodeDialog({
           </div>
 
           <p className="mt-5 text-sm text-[#64748B]">Or join using code:</p>
-          <div className="mx-auto mt-2 w-full max-w-[280px] rounded-xl border border-[#E8C97A80] bg-[#F0F0F8] px-4 py-3 sm:px-6">
+          <div className="mx-auto mt-2 inline-flex w-full max-w-[280px] justify-center rounded-xl border border-[#E8C97A80] bg-[#F0F0F8] px-4 py-3 sm:px-6">
             <p className="text-2xl font-bold tracking-[0.28em] text-[#B0924A] sm:text-3xl sm:tracking-[0.38em]">
               {groupCode}
             </p>
@@ -165,6 +197,25 @@ export function ShareGroupCodeDialog({
           <p className="mt-5 text-xs font-semibold text-[#F97316] sm:mt-6">
             Download Munawwara Care to get started.
           </p>
+        </div>
+
+        {/* Compact visible content */}
+        <div className="mx-auto w-full max-w-[320px] rounded-xl border border-border bg-card p-4 text-center">
+          <div className="mx-auto grid aspect-square w-full max-w-[180px] place-items-center rounded-lg border border-border bg-background p-2">
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground">Loading QR...</p>
+            ) : qrDataUrl ? (
+              <img src={qrDataUrl} alt="Group QR" className="h-full w-full object-contain" />
+            ) : (
+              <div className="text-muted-foreground">
+                <QrCode className="mx-auto size-8" />
+                <p className="mt-2 text-xs">QR unavailable</p>
+              </div>
+            )}
+          </div>
+
+          <p className="mt-3 text-xs text-muted-foreground">Group Code</p>
+          <p className="mt-1 font-mono text-2xl font-bold tracking-[0.2em] text-foreground">{groupCode}</p>
         </div>
 
         <div className="mt-1 flex flex-wrap gap-2">
