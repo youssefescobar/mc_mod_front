@@ -33,15 +33,29 @@ interface GroupQrResponse {
   }
 }
 
+type RawGroupSummary = GroupSummary & {
+  pilgrims?: unknown[]
+}
+
+function normalizeGroupSummary(group: RawGroupSummary): GroupSummary {
+  const pilgrimsCountFromArray = Array.isArray(group.pilgrims) ? group.pilgrims.length : undefined
+  const pilgrimIdsCount = Array.isArray(group.pilgrim_ids) ? group.pilgrim_ids.length : undefined
+
+  return {
+    ...group,
+    pilgrim_count: group.pilgrim_count ?? pilgrimsCountFromArray ?? pilgrimIdsCount ?? 0,
+  }
+}
+
 export async function getGroupsDashboard(): Promise<GroupSummary[]> {
-  const { data } = await apiClient.get<GroupSummary[] | DashboardResponse>('/groups/dashboard')
+  const { data } = await apiClient.get<RawGroupSummary[] | DashboardResponse>('/groups/dashboard')
 
   if (Array.isArray(data)) {
-    return data
+    return data.map((group) => normalizeGroupSummary(group))
   }
 
   if (data && typeof data === 'object' && Array.isArray(data.data)) {
-    return data.data
+    return (data.data as RawGroupSummary[]).map((group) => normalizeGroupSummary(group))
   }
 
   return []
@@ -78,4 +92,48 @@ export async function getGroupQr(groupId: string): Promise<string | null> {
   }
 
   return null
+}
+
+export async function getSuggestedAreas(
+  groupId: string
+): Promise<Array<{ _id: string; name: string; area_type: 'suggestion' | 'meetpoint'; latitude: number; longitude: number; active: boolean }>> {
+  try {
+    const response = await apiClient.get<{
+      success: boolean
+      data?: Array<{ _id: string; name: string; area_type: 'suggestion' | 'meetpoint'; latitude: number; longitude: number; active: boolean }>
+      suggested_areas?: Array<{ _id: string; name: string; area_type: 'suggestion' | 'meetpoint'; latitude: number; longitude: number; active: boolean }>
+    }>(`/groups/${groupId}/suggested-areas`)
+
+    const areas = response.data?.data || response.data?.suggested_areas || []
+    return Array.isArray(areas) ? areas : []
+  } catch {
+    return []
+  }
+}
+
+export async function addSuggestedArea(
+  groupId: string,
+  name: string,
+  area_type: 'suggestion' | 'meetpoint',
+  latitude: number,
+  longitude: number,
+  description?: string
+): Promise<void> {
+  await apiClient.post(`/groups/${groupId}/suggested-areas`, {
+    name,
+    area_type,
+    latitude,
+    longitude,
+    description,
+  })
+}
+
+export async function removeSuggestedArea(groupId: string, areaId: string): Promise<void> {
+  await apiClient.delete(`/groups/${groupId}/suggested-areas/${areaId}`)
+}
+
+export async function removePilgrimFromGroup(groupId: string, pilgrimId: string): Promise<void> {
+  await apiClient.post(`/groups/${groupId}/remove-pilgrim`, {
+    pilgrim_id: pilgrimId,
+  })
 }

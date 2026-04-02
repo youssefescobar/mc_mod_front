@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAuth } from '@/features/auth/auth-context'
-import { useI18n } from '@/i18n/i18n-context'
+import { useI18n } from '@/i18n/use-i18n'
 import { languageOptions, getLanguageLabel } from '@/features/profile/language-options'
 import { updateLanguage, updateProfile } from '@/services/api/auth-api'
 

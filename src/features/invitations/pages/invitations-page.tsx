@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useI18n } from '@/i18n/i18n-context'
+import { useI18n } from '@/i18n/use-i18n'
 import { getGroupsDashboard } from '@/services/api/groups-api'
 import {
   acceptInvitation,

@@ -13,7 +13,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuth } from '@/features/auth/auth-context'
-import { useI18n } from '@/i18n/i18n-context'
+import { useI18n } from '@/i18n/use-i18n'
 
 export function LoginPage() {
   const navigate = useNavigate()

@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { getNotifications } from '@/services/api/notifications-api'
-import { useI18n } from '@/i18n/i18n-context'
+import { useI18n } from '@/i18n/use-i18n'
 import type { NotificationItem } from '@/types/notifications'
 
 const ALERT_TYPES = new Set(['sos_alert', 'missed_call'])

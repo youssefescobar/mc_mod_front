@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { useI18n } from '@/i18n/i18n-context'
+import { useI18n } from '@/i18n/use-i18n'
 import { getGroupQr } from '@/services/api/groups-api'
 
 interface ShareGroupCodeDialogProps {

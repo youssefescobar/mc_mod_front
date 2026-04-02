@@ -24,7 +24,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { createGroup, getGroupsDashboard } from '@/services/api/groups-api'
-import { useI18n } from '@/i18n/i18n-context'
+import { useI18n } from '@/i18n/use-i18n'
 import type { GroupSummary } from '@/types/groups'
 
 export function GroupsPage() {

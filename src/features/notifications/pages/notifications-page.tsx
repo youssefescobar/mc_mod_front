@@ -15,7 +15,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '@/services/api/notifications-api'
-import { useI18n } from '@/i18n/i18n-context'
+import { useI18n } from '@/i18n/use-i18n'
 import type { NotificationItem } from '@/types/notifications'
 
 export function NotificationsPage() {

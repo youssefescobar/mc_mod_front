@@ -4,7 +4,6 @@ import {
   LogOut,
   MapPinned,
   MessageSquare,
-  ShieldCheck,
   Users,
   UserCircle2,
   AlarmClock,
@@ -13,11 +12,12 @@ import {
 } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 
+import logo from '@/assets/logo.jpeg'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { useAuth } from '@/features/auth/auth-context'
-import { useI18n } from '@/i18n/i18n-context'
+import { useI18n } from '@/i18n/use-i18n'
 
 function NavItem({
   to,
@@ -65,9 +65,7 @@ export function AppShell() {
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[280px_1fr]">
         <aside className="border-r border-sidebar-border bg-sidebar p-5">
           <div className="mb-4 flex items-center gap-3">
-            <div className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground">
-              <ShieldCheck className="size-5" />
-            </div>
+            <img src={logo} alt="Munawwara Care" className="size-10 rounded-lg object-cover" />
             <div>
               <p className="text-sm font-semibold text-sidebar-foreground">{t('app.name')}</p>
               <p className="text-xs text-muted-foreground">{t('app.subtitle')}</p>

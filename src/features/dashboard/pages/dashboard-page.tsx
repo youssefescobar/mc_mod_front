@@ -14,7 +14,7 @@ import { getGroupsDashboard } from '@/services/api/groups-api'
 import { getNotifications, getUnreadCount } from '@/services/api/notifications-api'
 import type { GroupSummary } from '@/types/groups'
 import type { NotificationItem } from '@/types/notifications'
-import { useI18n } from '@/i18n/i18n-context'
+import { useI18n } from '@/i18n/use-i18n'
 
 export function DashboardPage() {
   const [groups, setGroups] = useState<GroupSummary[]>([])

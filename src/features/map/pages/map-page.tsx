@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { useI18n } from '@/i18n/i18n-context'
+import { useI18n } from '@/i18n/use-i18n'
 import { getGroupDetails, getGroupsDashboard } from '@/services/api/groups-api'
 import type { GroupSummary } from '@/types/groups'
 
