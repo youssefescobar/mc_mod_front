@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { useParams } from 'react-router-dom'
 
 import { PageHeader } from '@/components/layout/page-header'
 import { Badge } from '@/components/ui/badge'
@@ -24,6 +25,7 @@ import type { GroupSummary } from '@/types/groups'
 import type { ReminderItem } from '@/types/notifications'
 
 export function RemindersPage() {
+  const { groupId: routeGroupId = '' } = useParams()
   const [groups, setGroups] = useState<GroupSummary[]>([])
   const [groupId, setGroupId] = useState('')
   const [text, setText] = useState('')
@@ -34,18 +36,22 @@ export function RemindersPage() {
   const { t } = useI18n()
 
   const reminderItems = Array.isArray(items) ? items : []
+  const activeGroupId = routeGroupId || groupId
+  const activeGroup = groups.find((group) => group._id === activeGroupId)
 
   useEffect(() => {
     const loadGroups = async () => {
       const data = await getGroupsDashboard()
       setGroups(data)
-      if (data.length > 0) {
+      if (routeGroupId) {
+        setGroupId(routeGroupId)
+      } else if (data.length > 0) {
         setGroupId((prev) => prev || data[0]._id)
       }
     }
 
     void loadGroups()
-  }, [])
+  }, [routeGroupId])
 
   useEffect(() => {
     if (!groupId) {
@@ -80,25 +86,36 @@ export function RemindersPage() {
     <div>
       <PageHeader
         title={t('reminders.title')}
-        description={t('reminders.description')}
+        description={
+          routeGroupId
+            ? `Manage reminders for ${activeGroup?.group_name ?? 'this group'}.`
+            : t('reminders.description')
+        }
       />
 
       <form onSubmit={onSubmit} className="mb-6 grid gap-4 rounded-2xl border border-border bg-card p-5 lg:grid-cols-2">
-        <div className="space-y-2">
-          <Label>{t('reminders.group')}</Label>
-          <Select value={groupId} onValueChange={setGroupId}>
-            <SelectTrigger>
-              <SelectValue placeholder={t('groups.group')} />
-            </SelectTrigger>
-            <SelectContent>
-              {groups.map((group) => (
-                <SelectItem key={group._id} value={group._id}>
-                  {group.group_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {routeGroupId ? (
+          <div className="space-y-2">
+            <Label>{t('reminders.group')}</Label>
+            <Input value={activeGroup?.group_name ?? 'Loading...'} readOnly />
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Label>{t('reminders.group')}</Label>
+            <Select value={groupId} onValueChange={setGroupId}>
+              <SelectTrigger>
+                <SelectValue placeholder={t('groups.group')} />
+              </SelectTrigger>
+              <SelectContent>
+                {groups.map((group) => (
+                  <SelectItem key={group._id} value={group._id}>
+                    {group.group_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label>{t('reminders.schedule')}</Label>

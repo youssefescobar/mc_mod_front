@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 
 import { PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
@@ -20,22 +20,28 @@ import {
 import type { GroupSummary } from '@/types/groups'
 
 export function GroupChatPage() {
+  const { groupId: routeGroupId = '' } = useParams()
   const [groups, setGroups] = useState<GroupSummary[]>([])
   const [groupId, setGroupId] = useState('')
   const [messages, setMessages] = useState<MessageItem[]>([])
   const [content, setContent] = useState('')
 
+  const activeGroupId = routeGroupId || groupId
+  const activeGroup = groups.find((group) => group._id === activeGroupId)
+
   useEffect(() => {
     const loadGroups = async () => {
       const data = await getGroupsDashboard()
       setGroups(data)
-      if (data.length > 0) {
+      if (routeGroupId) {
+        setGroupId(routeGroupId)
+      } else if (data.length > 0) {
         setGroupId((prev) => prev || data[0]._id)
       }
     }
 
     void loadGroups()
-  }, [])
+  }, [routeGroupId])
 
   useEffect(() => {
     if (!groupId) {
@@ -62,22 +68,32 @@ export function GroupChatPage() {
     <div>
       <PageHeader
         title="Group Chat"
-        description="Text-only messaging for moderator web dashboard (voice/image excluded in this phase)."
+        description={
+          routeGroupId
+            ? `Text chat for ${activeGroup?.group_name ?? 'this group'}.`
+            : 'Text-only messaging for moderator web dashboard (voice/image excluded in this phase).'
+        }
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Select value={groupId} onValueChange={setGroupId}>
-          <SelectTrigger className="w-[280px]">
-            <SelectValue placeholder="Select group" />
-          </SelectTrigger>
-          <SelectContent>
-            {groups.map((group) => (
-              <SelectItem key={group._id} value={group._id}>
-                {group.group_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {routeGroupId ? (
+          <div className="w-[280px] rounded-md border border-border bg-card px-3 py-2 text-sm">
+            {activeGroup?.group_name ?? 'Loading group...'}
+          </div>
+        ) : (
+          <Select value={groupId} onValueChange={setGroupId}>
+            <SelectTrigger className="w-[280px]">
+              <SelectValue placeholder="Select group" />
+            </SelectTrigger>
+            <SelectContent>
+              {groups.map((group) => (
+                <SelectItem key={group._id} value={group._id}>
+                  {group.group_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         {groupId ? (
           <Button asChild variant="outline">
             <Link to={`/app/groups/${groupId}`}>Open group details</Link>

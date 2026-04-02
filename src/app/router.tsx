@@ -30,12 +30,12 @@ export function AppRouter() {
               <Route path="groups/:groupId" element={<GroupDetailsPage />} />
               <Route path="groups/:groupId/pilgrims" element={<GroupPilgrimsPage />} />
               <Route path="groups/:groupId/map" element={<GroupMapPage />} />
+              <Route path="groups/:groupId/invitations" element={<InvitationsPage />} />
+              <Route path="groups/:groupId/chat" element={<GroupChatPage />} />
+              <Route path="groups/:groupId/reminders" element={<RemindersPage />} />
               <Route path="alerts" element={<AlertsPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
-              <Route path="reminders" element={<RemindersPage />} />
-              <Route path="invitations" element={<InvitationsPage />} />
               <Route path="profile" element={<ProfilePage />} />
-              <Route path="chats/group" element={<GroupChatPage />} />
               <Route path="chats/group/:groupId/:recipientId" element={<IndividualChatPage />} />
             </Route>
           </Route>

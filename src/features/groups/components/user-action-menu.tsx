@@ -1,4 +1,4 @@
-import { MapPin, Trash2, User } from 'lucide-react'
+import { MapPin, MoreHorizontal, Trash2, User } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -20,8 +20,8 @@ export function UserActionMenu({ user, onViewProfile, onNavigate, onRemove }: Us
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-          <span className="text-lg">•••</span>
+        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground" aria-label="Open pilgrim actions">
+          <MoreHorizontal className="size-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

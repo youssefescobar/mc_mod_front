@@ -43,9 +43,13 @@ export function PilgrimProfileDialog({
           {/* Status Badge */}
           <div>
             <p className="text-xs font-semibold text-muted-foreground mb-1">Status</p>
-            <Badge variant={pilgrim.is_online ? 'default' : 'secondary'}>
-              {pilgrim.is_online ? 'Online' : 'Offline'}
-            </Badge>
+            {pilgrim.is_online ? (
+              <Badge>Online</Badge>
+            ) : (
+              <Badge className="bg-gray-200 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-700">
+                Offline
+              </Badge>
+            )}
           </div>
 
           <Separator />

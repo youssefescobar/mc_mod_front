@@ -1,5 +1,5 @@
-import { Plus, Upload, AlertCircle, Copy } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Plus, Upload, AlertCircle, Copy, ChevronDown } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 
@@ -80,8 +80,10 @@ export function GroupPilgrimsPage() {
   const [loading, setLoading] = useState(true)
   const [isProvisioningOne, setIsProvisioningOne] = useState(false)
   const [isProvisioningBulk, setIsProvisioningBulk] = useState(false)
+  const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false)
   const [bulkErrors, setBulkErrors] = useState<string[]>([])
   const [provisioned, setProvisioned] = useState<ProvisionPilgrimResult[]>([])
+  const createPanelRef = useRef<HTMLDivElement | null>(null)
   const [form, setForm] = useState<ProvisionPilgrimInput>({
     full_name: '',
     phone_number: '',
@@ -105,6 +107,22 @@ export function GroupPilgrimsPage() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (!isCreatePanelOpen) return
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (!createPanelRef.current) return
+      if (!createPanelRef.current.contains(event.target as Node)) {
+        setIsCreatePanelOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', onPointerDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+    }
+  }, [isCreatePanelOpen])
 
   const handleViewProfile = (pilgrimId: string) => {
     const pilgrim = group?.pilgrims?.find((p) => p._id === pilgrimId)
@@ -242,112 +260,129 @@ export function GroupPilgrimsPage() {
         }
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Create Pilgrim Accounts</CardTitle>
-          <CardDescription>
-            Moderator-provisioned flow with one-time QR login (24h, single-use, device-bound).
-          </CardDescription>
+      <Card ref={createPanelRef}>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <div>
+            <CardTitle>Create Pilgrim Accounts</CardTitle>
+            <CardDescription>
+              Moderator-provisioned flow with one-time QR login (24h, single-use, device-bound).
+            </CardDescription>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setIsCreatePanelOpen((prev) => !prev)}
+            aria-expanded={isCreatePanelOpen}
+            aria-controls="create-pilgrim-panel"
+            className="shrink-0 px-2"
+            aria-label={isCreatePanelOpen ? 'Collapse create pilgrim panel' : 'Expand create pilgrim panel'}
+          >
+            <ChevronDown
+              className={`size-4 transition-transform ${isCreatePanelOpen ? 'rotate-180' : ''}`}
+            />
+          </Button>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <form onSubmit={onProvisionOne} className="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <div className="space-y-1 md:col-span-2">
-              <Label>Full name</Label>
-              <Input required value={form.full_name || ''} onChange={(e) => setForm((p) => ({ ...p, full_name: e.target.value }))} />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Phone number</Label>
-              <Input required value={form.phone_number || ''} onChange={(e) => setForm((p) => ({ ...p, phone_number: e.target.value }))} />
-            </div>
-            <div className="space-y-1">
-              <Label>Age</Label>
-              <Input type="number" value={form.age ?? ''} onChange={(e) => setForm((p) => ({ ...p, age: e.target.value ? Number(e.target.value) : undefined }))} />
-            </div>
-            <div className="space-y-1">
-              <Label>Room number</Label>
-              <Input value={form.room_number || ''} onChange={(e) => setForm((p) => ({ ...p, room_number: e.target.value }))} />
-            </div>
-            <div className="space-y-1">
-              <Label>Bus info</Label>
-              <Input value={form.bus_info || ''} onChange={(e) => setForm((p) => ({ ...p, bus_info: e.target.value }))} />
-            </div>
-            <div className="space-y-1">
-              <Label>Hotel name</Label>
-              <Input value={form.hotel_name || ''} onChange={(e) => setForm((p) => ({ ...p, hotel_name: e.target.value }))} />
-            </div>
-            <div className="space-y-1">
-              <Label>Language</Label>
-              <Select value={form.language || 'en'} onValueChange={(value) => setForm((p) => ({ ...p, language: value as ProvisionPilgrimInput['language'] }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="ar">Arabic</SelectItem>
-                  <SelectItem value="ur">Urdu</SelectItem>
-                  <SelectItem value="fr">French</SelectItem>
-                  <SelectItem value="id">Bahasa</SelectItem>
-                  <SelectItem value="tr">Turkish</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>Ethnicity</Label>
-              <Select value={form.ethnicity || 'Other'} onValueChange={(value) => setForm((p) => ({ ...p, ethnicity: value as ProvisionPilgrimInput['ethnicity'] }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {ETHNICITIES.map((item) => (<SelectItem key={item} value={item}>{item}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>Visa status</Label>
-              <Select value={form.visa?.status || 'unknown'} onValueChange={(value) => setForm((p) => ({ ...p, visa: { ...(p.visa || {}), status: value as NonNullable<NonNullable<ProvisionPilgrimInput['visa']>['status']> } }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {VISA_STATUSES.map((item) => (<SelectItem key={item} value={item}>{item}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="md:col-span-4 flex items-center gap-2">
-              <Button type="submit" disabled={isProvisioningOne}><Plus className="mr-2 size-4" />{isProvisioningOne ? 'Creating...' : 'Create pilgrim'}</Button>
-              <Label className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm">
-                <Upload className="size-4" />
-                {isProvisioningBulk ? 'Uploading...' : 'Upload Excel (.xlsx)'}
-                <input className="hidden" type="file" accept=".xlsx,.xls" onChange={(e) => void onBulkFileChange(e.target.files?.[0])} disabled={isProvisioningBulk} />
-              </Label>
-            </div>
-          </form>
-
-          {bulkErrors.length > 0 && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                <ul className="list-disc pl-4">{bulkErrors.slice(0, 8).map((error) => (<li key={error}>{error}</li>))}</ul>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {provisionedPreview.length > 0 && (
-            <div className="space-y-3">
-              <p className="text-sm font-medium">Latest one-time login credentials</p>
-              <div className="grid gap-3 md:grid-cols-2">
-                {provisionedPreview.map((item, index) => (
-                  <div key={`${item.pilgrim._id}-${index}`} className="rounded-xl border p-3">
-                    <p className="font-medium">{item.pilgrim.full_name}</p>
-                    <p className="text-xs text-muted-foreground">{item.pilgrim.phone_number}</p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <Input readOnly value={item.one_time_login.token} className="text-xs" />
-                      <Button variant="outline" size="icon" onClick={() => void copyToken(item.one_time_login.token)}>
-                        <Copy className="size-4" />
-                      </Button>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">Expires: {new Date(item.one_time_login.expires_at).toLocaleString()}</p>
-                    <img src={item.one_time_login.qr_code_data_url} alt="One-time login QR" className="mt-2 h-28 w-28 rounded border" />
-                  </div>
-                ))}
+        {isCreatePanelOpen && (
+          <CardContent id="create-pilgrim-panel" className="space-y-6">
+            <form onSubmit={onProvisionOne} className="grid grid-cols-1 gap-3 md:grid-cols-4">
+              <div className="space-y-1 md:col-span-2">
+                <Label>Full name</Label>
+                <Input required value={form.full_name || ''} onChange={(e) => setForm((p) => ({ ...p, full_name: e.target.value }))} />
               </div>
-            </div>
-          )}
-        </CardContent>
+              <div className="space-y-1 md:col-span-2">
+                <Label>Phone number</Label>
+                <Input required value={form.phone_number || ''} onChange={(e) => setForm((p) => ({ ...p, phone_number: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Age</Label>
+                <Input type="number" value={form.age ?? ''} onChange={(e) => setForm((p) => ({ ...p, age: e.target.value ? Number(e.target.value) : undefined }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Room number</Label>
+                <Input value={form.room_number || ''} onChange={(e) => setForm((p) => ({ ...p, room_number: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Bus info</Label>
+                <Input value={form.bus_info || ''} onChange={(e) => setForm((p) => ({ ...p, bus_info: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Hotel name</Label>
+                <Input value={form.hotel_name || ''} onChange={(e) => setForm((p) => ({ ...p, hotel_name: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Language</Label>
+                <Select value={form.language || 'en'} onValueChange={(value) => setForm((p) => ({ ...p, language: value as ProvisionPilgrimInput['language'] }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en">English</SelectItem>
+                    <SelectItem value="ar">Arabic</SelectItem>
+                    <SelectItem value="ur">Urdu</SelectItem>
+                    <SelectItem value="fr">French</SelectItem>
+                    <SelectItem value="id">Bahasa</SelectItem>
+                    <SelectItem value="tr">Turkish</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Ethnicity</Label>
+                <Select value={form.ethnicity || 'Other'} onValueChange={(value) => setForm((p) => ({ ...p, ethnicity: value as ProvisionPilgrimInput['ethnicity'] }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {ETHNICITIES.map((item) => (<SelectItem key={item} value={item}>{item}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Visa status</Label>
+                <Select value={form.visa?.status || 'unknown'} onValueChange={(value) => setForm((p) => ({ ...p, visa: { ...(p.visa || {}), status: value as NonNullable<NonNullable<ProvisionPilgrimInput['visa']>['status']> } }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {VISA_STATUSES.map((item) => (<SelectItem key={item} value={item}>{item}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="md:col-span-4 flex items-center gap-2">
+                <Button type="submit" disabled={isProvisioningOne}><Plus className="mr-2 size-4" />{isProvisioningOne ? 'Creating...' : 'Create pilgrim'}</Button>
+                <Label className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                  <Upload className="size-4" />
+                  {isProvisioningBulk ? 'Uploading...' : 'Upload Excel (.xlsx)'}
+                  <input className="hidden" type="file" accept=".xlsx,.xls" onChange={(e) => void onBulkFileChange(e.target.files?.[0])} disabled={isProvisioningBulk} />
+                </Label>
+              </div>
+            </form>
+
+            {bulkErrors.length > 0 && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <ul className="list-disc pl-4">{bulkErrors.slice(0, 8).map((error) => (<li key={error}>{error}</li>))}</ul>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {provisionedPreview.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-sm font-medium">Latest one-time login credentials</p>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {provisionedPreview.map((item, index) => (
+                    <div key={`${item.pilgrim._id}-${index}`} className="rounded-xl border p-3">
+                      <p className="font-medium">{item.pilgrim.full_name}</p>
+                      <p className="text-xs text-muted-foreground">{item.pilgrim.phone_number}</p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <Input readOnly value={item.one_time_login.token} className="text-xs" />
+                        <Button variant="outline" size="icon" onClick={() => void copyToken(item.one_time_login.token)}>
+                          <Copy className="size-4" />
+                        </Button>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">Expires: {new Date(item.one_time_login.expires_at).toLocaleString()}</p>
+                      <img src={item.one_time_login.qr_code_data_url} alt="One-time login QR" className="mt-2 h-28 w-28 rounded border" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        )}
       </Card>
 
       <div className="mt-6 rounded-2xl border border-border bg-card">
@@ -372,7 +407,15 @@ export function GroupPilgrimsPage() {
                 <TableCell>{pilgrim.national_id ?? '-'}</TableCell>
                 <TableCell>{pilgrim.phone_number ?? '-'}</TableCell>
                 <TableCell>{pilgrim.battery_percent ?? '-'}</TableCell>
-                <TableCell>{pilgrim.is_online ? <Badge>Online</Badge> : <Badge variant="secondary">Offline</Badge>}</TableCell>
+                <TableCell>
+                  {pilgrim.is_online ? (
+                    <Badge>Online</Badge>
+                  ) : (
+                    <Badge className="bg-gray-200 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-700">
+                      Offline
+                    </Badge>
+                  )}
+                </TableCell>
                 <TableCell>{pilgrim.location ? `${pilgrim.location.lat.toFixed(5)}, ${pilgrim.location.lng.toFixed(5)}` : '-'}</TableCell>
                 <TableCell>
                   <Dialog open={showRemoveConfirm === pilgrim._id} onOpenChange={(open) => setShowRemoveConfirm(open ? pilgrim._id : null)}>

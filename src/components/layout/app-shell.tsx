@@ -2,11 +2,8 @@ import {
   Bell,
   LayoutDashboard,
   LogOut,
-  MessageSquare,
   Users,
   UserCircle2,
-  AlarmClock,
-  Ticket,
   TriangleAlert,
 } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
@@ -53,15 +50,12 @@ export function AppShell() {
     { to: '/app/groups', label: t('nav.groups'), icon: Users },
     { to: '/app/alerts', label: t('nav.alerts'), icon: TriangleAlert },
     { to: '/app/notifications', label: t('nav.notifications'), icon: Bell },
-    { to: '/app/reminders', label: t('nav.reminders'), icon: AlarmClock },
-    { to: '/app/invitations', label: t('nav.invitations'), icon: Ticket },
-    { to: '/app/profile', label: t('nav.profile'), icon: UserCircle2 },
   ]
 
   return (
     <div className="min-h-screen bg-background">
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[280px_1fr]">
-        <aside className="border-r border-sidebar-border bg-sidebar p-5">
+        <aside className="flex h-full min-h-screen flex-col border-r border-sidebar-border bg-sidebar p-5">
           <div className="mb-4 flex items-center gap-3">
             <img src={logo} alt="Munawwara Care" className="size-10 rounded-lg object-cover" />
             <div>
@@ -76,12 +70,13 @@ export function AppShell() {
             {navItems.map((item) => (
               <NavItem key={item.to} to={item.to} label={item.label} icon={item.icon} />
             ))}
-            <NavItem to="/app/chats/group" label={t('nav.chat')} icon={MessageSquare} />
+            <NavItem to="/app/profile" label={t('nav.profile')} icon={UserCircle2} />
           </nav>
 
-          <div className="mt-8 rounded-xl border border-border bg-card p-3">
-            <p className="text-xs text-muted-foreground">{t('shell.signed_in_as')}</p>
-            <p className="truncate text-sm font-semibold text-card-foreground">{user?.fullName}</p>
+          <div className="mt-auto rounded-xl border border-border bg-card p-3">
+            <p className="truncate text-sm text-muted-foreground">
+              {t('shell.signed_in_as')}: <span className="font-semibold text-card-foreground">{user?.fullName}</span>
+            </p>
             <div className="mt-2 flex items-center justify-between">
               <Badge variant="secondary">{user?.role}</Badge>
               <Button size="sm" variant="ghost" onClick={() => void signOut()}>

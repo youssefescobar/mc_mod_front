@@ -19,6 +19,9 @@ interface ShareGroupCodeDialogProps {
   groupName: string
   groupCode: string
   moderatorName?: string
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  hideTrigger?: boolean
 }
 
 export function ShareGroupCodeDialog({
@@ -26,14 +29,26 @@ export function ShareGroupCodeDialog({
   groupName,
   groupCode,
   moderatorName,
+  open,
+  onOpenChange,
+  hideTrigger = false,
 }: ShareGroupCodeDialogProps) {
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
   const posterRef = useRef<HTMLDivElement | null>(null)
   const { t } = useI18n()
+  const isControlled = typeof open === 'boolean'
+  const dialogOpen = isControlled ? open : internalOpen
+
+  const setDialogOpen = (nextOpen: boolean) => {
+    if (!isControlled) {
+      setInternalOpen(nextOpen)
+    }
+    onOpenChange?.(nextOpen)
+  }
 
   const displayModerator = useMemo(
     () => moderatorName || 'Moderator',
@@ -41,7 +56,7 @@ export function ShareGroupCodeDialog({
   )
 
   useEffect(() => {
-    if (!open) {
+    if (!dialogOpen) {
       return
     }
 
@@ -59,7 +74,7 @@ export function ShareGroupCodeDialog({
     }
 
     void loadQr()
-  }, [groupId, open])
+  }, [groupId, dialogOpen])
 
   const handleCopyCode = async () => {
     try {
@@ -97,13 +112,15 @@ export function ShareGroupCodeDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline">
-          <Share2 className="mr-2 size-4" />
-          {t('share.title')}
-        </Button>
-      </DialogTrigger>
+    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {!hideTrigger ? (
+        <DialogTrigger asChild>
+          <Button variant="outline">
+            <Share2 className="mr-2 size-4" />
+            {t('share.title')}
+          </Button>
+        </DialogTrigger>
+      ) : null}
       <DialogContent className="w-[calc(100vw-1rem)] max-w-[420px] max-h-[calc(100dvh-1rem)] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t('share.title')}</DialogTitle>

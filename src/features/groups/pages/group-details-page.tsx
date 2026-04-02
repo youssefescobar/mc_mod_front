@@ -1,4 +1,4 @@
-import { Users, MapPinned } from 'lucide-react'
+import { Users, MapPinned, Mail, MessageSquare, BellRing } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
@@ -78,7 +78,7 @@ export function GroupDetailsPage() {
         </Card>
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
+      <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -109,6 +109,57 @@ export function GroupDetailsPage() {
           <CardContent>
             <Button asChild variant="outline">
               <Link to={`/app/groups/${group._id}/map`}>Open Group Map</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="size-5" />
+              Invitations
+            </CardTitle>
+            <CardDescription>
+              Send and track moderator invitations specifically for this group.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild variant="outline">
+              <Link to={`/app/groups/${group._id}/invitations`}>Open Invitations</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="size-5" />
+              Group Chat
+            </CardTitle>
+            <CardDescription>
+              Open text chat workspace scoped to this group.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild variant="outline">
+              <Link to={`/app/groups/${group._id}/chat`}>Open Group Chat</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BellRing className="size-5" />
+              Reminders
+            </CardTitle>
+            <CardDescription>
+              Create and manage reminder schedule for this group only.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild variant="outline">
+              <Link to={`/app/groups/${group._id}/reminders`}>Open Reminders</Link>
             </Button>
           </CardContent>
         </Card>
