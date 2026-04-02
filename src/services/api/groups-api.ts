@@ -1,5 +1,6 @@
 import { apiClient } from '@/services/api/client'
 import type { GroupDetails, GroupSummary } from '@/types/groups'
+import type { ProvisionPilgrimInput, ProvisionPilgrimResult } from '@/types/pilgrims'
 
 interface DashboardResponse {
   success?: boolean
@@ -134,6 +135,30 @@ export async function removeSuggestedArea(groupId: string, areaId: string): Prom
 
 export async function removePilgrimFromGroup(groupId: string, pilgrimId: string): Promise<void> {
   await apiClient.post(`/groups/${groupId}/remove-pilgrim`, {
-    pilgrim_id: pilgrimId,
+    user_id: pilgrimId,
   })
+}
+
+export async function provisionPilgrim(
+  groupId: string,
+  payload: ProvisionPilgrimInput,
+): Promise<ProvisionPilgrimResult> {
+  const { data } = await apiClient.post(`/auth/groups/${groupId}/provision-pilgrim`, payload)
+  return data?.data ?? data
+}
+
+export async function provisionPilgrimsBulk(
+  groupId: string,
+  pilgrims: ProvisionPilgrimInput[],
+): Promise<{
+  summary: {
+    total_rows: number
+    created_count: number
+    skipped_count: number
+  }
+  created: ProvisionPilgrimResult[]
+  skipped: Array<{ row: number; reason: string }>
+}> {
+  const { data } = await apiClient.post(`/auth/groups/${groupId}/provision-pilgrims-bulk`, { pilgrims })
+  return data?.data ?? data
 }

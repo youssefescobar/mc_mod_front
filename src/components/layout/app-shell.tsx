@@ -2,7 +2,6 @@ import {
   Bell,
   LayoutDashboard,
   LogOut,
-  MapPinned,
   MessageSquare,
   Users,
   UserCircle2,
@@ -52,7 +51,6 @@ export function AppShell() {
   const navItems = [
     { to: '/app/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
     { to: '/app/groups', label: t('nav.groups'), icon: Users },
-    { to: '/app/map', label: t('nav.map'), icon: MapPinned },
     { to: '/app/alerts', label: t('nav.alerts'), icon: TriangleAlert },
     { to: '/app/notifications', label: t('nav.notifications'), icon: Bell },
     { to: '/app/reminders', label: t('nav.reminders'), icon: AlarmClock },

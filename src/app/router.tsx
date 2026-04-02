@@ -9,9 +9,8 @@ import { I18nProvider } from '@/i18n/i18n-context'
 import { DashboardPage } from '@/features/dashboard/pages/dashboard-page'
 import { GroupChatPage } from '@/features/chat/pages/group-chat-page'
 import { IndividualChatPage } from '@/features/chat/pages/individual-chat-page'
-import { GroupDetailsPage, GroupsPage } from '@/features/groups/pages'
+import { GroupDetailsPage, GroupMapPage, GroupPilgrimsPage, GroupsPage } from '@/features/groups/pages'
 import { InvitationsPage } from '@/features/invitations/pages/invitations-page'
-import { MapPage } from '@/features/map/pages/map-page'
 import { NotificationsPage } from '@/features/notifications/pages/notifications-page'
 import { ProfilePage } from '@/features/profile/pages/profile-page'
 import { RemindersPage } from '@/features/reminders/pages/reminders-page'
@@ -29,7 +28,8 @@ export function AppRouter() {
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="groups" element={<GroupsPage />} />
               <Route path="groups/:groupId" element={<GroupDetailsPage />} />
-              <Route path="map" element={<MapPage />} />
+              <Route path="groups/:groupId/pilgrims" element={<GroupPilgrimsPage />} />
+              <Route path="groups/:groupId/map" element={<GroupMapPage />} />
               <Route path="alerts" element={<AlertsPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="reminders" element={<RemindersPage />} />
