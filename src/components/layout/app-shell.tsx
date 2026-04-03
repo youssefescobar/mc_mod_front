@@ -23,6 +23,7 @@ import {
   getUnreadCount,
   markNotificationRead,
 } from '@/services/api/notifications-api'
+import { getGroupsDashboard } from '@/services/api/groups-api'
 import { bindCommonRefreshEvents } from '@/services/realtime/common-events'
 import { getRealtimeSocket } from '@/services/realtime/socket'
 import { storage } from '@/services/storage'
@@ -224,6 +225,19 @@ export function AppShell() {
 
     const socket = getRealtimeSocket(user)
 
+    const joinAllGroups = async () => {
+      if (!storage.getToken()) return
+
+      try {
+        const groups = await getGroupsDashboard()
+        groups.forEach((group) => {
+          socket.emit('join_group', group._id)
+        })
+      } catch {
+        // Ignore transient join sync errors; reconnect/events will retry.
+      }
+    }
+
     const handleRefresh = () => {
       void syncNotifications()
     }
@@ -233,27 +247,22 @@ export function AppShell() {
       void syncNotifications()
     }
 
+    const handleConnect = () => {
+      void joinAllGroups()
+    }
+
     const unbindCommonRefresh = bindCommonRefreshEvents(socket, handleRefresh)
     socket.on('sos-alert-received', handleSosAlert)
+    socket.on('connect', handleConnect)
+
+    void joinAllGroups()
 
     return () => {
       unbindCommonRefresh()
       socket.off('sos-alert-received', handleSosAlert)
+      socket.off('connect', handleConnect)
     }
   }, [showBanner, syncNotifications, user])
-
-  useEffect(() => {
-    if (!user) return
-
-    // Fallback sync in case a socket event is missed.
-    const interval = window.setInterval(() => {
-      void syncNotifications()
-    }, 15000)
-
-    return () => {
-      window.clearInterval(interval)
-    }
-  }, [syncNotifications, user])
 
   useEffect(() => {
     if (!banner) return
