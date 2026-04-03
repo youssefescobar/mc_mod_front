@@ -120,6 +120,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshMe])
 
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== 'mc_mod_front_token') return
+      if (event.newValue) return
+
+      // Token removed in another tab/window -> invalidate local in-memory session.
+      setUser(null)
+    }
+
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [])
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,

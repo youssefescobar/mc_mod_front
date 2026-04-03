@@ -6,9 +6,12 @@ interface InvitationsResponse {
   invitations?: InvitationItem[]
 }
 
-export async function getInvitations(): Promise<InvitationItem[]> {
+export async function getInvitations(signal?: AbortSignal): Promise<InvitationItem[]> {
   const { data } = await apiClient.get<InvitationItem[] | InvitationsResponse>(
     '/invitations',
+    {
+      signal,
+    },
   )
 
   if (Array.isArray(data)) {

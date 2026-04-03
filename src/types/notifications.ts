@@ -5,6 +5,13 @@ export interface NotificationItem {
   message: string
   read: boolean
   created_at: string
+  data?: {
+    group_id?: string | { _id?: string }
+    pilgrim_id?: string | { _id?: string }
+    group_name?: string
+    pilgrim_name?: string
+    [key: string]: unknown
+  }
 }
 
 export interface ReminderItem {

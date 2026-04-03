@@ -4,7 +4,6 @@ import { AppShell } from '@/components/layout/app-shell'
 import { AuthProvider } from '@/features/auth/auth-context'
 import { LoginPage } from '@/features/auth/pages/login-page'
 import { ProtectedRoute } from '@/features/auth/protected-route'
-import { AlertsPage } from '@/features/alerts/pages/alerts-page'
 import { I18nProvider } from '@/i18n/i18n-context'
 import { DashboardPage } from '@/features/dashboard/pages/dashboard-page'
 import { GroupChatPage } from '@/features/chat/pages/group-chat-page'
@@ -33,7 +32,6 @@ export function AppRouter() {
               <Route path="groups/:groupId/invitations" element={<InvitationsPage />} />
               <Route path="groups/:groupId/chat" element={<GroupChatPage />} />
               <Route path="groups/:groupId/reminders" element={<RemindersPage />} />
-              <Route path="alerts" element={<AlertsPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="chats/group/:groupId/:recipientId" element={<IndividualChatPage />} />

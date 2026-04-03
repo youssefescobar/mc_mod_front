@@ -88,8 +88,10 @@ function normalizeGroupSummary(group: RawGroupSummary): GroupSummary {
   }
 }
 
-export async function getGroupsDashboard(): Promise<GroupSummary[]> {
-  const { data } = await apiClient.get<RawGroupSummary[] | DashboardResponse>('/groups/dashboard')
+export async function getGroupsDashboard(signal?: AbortSignal): Promise<GroupSummary[]> {
+  const { data } = await apiClient.get<RawGroupSummary[] | DashboardResponse>('/groups/dashboard', {
+    signal,
+  })
 
   if (Array.isArray(data)) {
     return data.map((group) => normalizeGroupSummary(group))
@@ -110,8 +112,10 @@ export async function deleteGroup(groupId: string): Promise<void> {
   await apiClient.delete(`/groups/${groupId}`)
 }
 
-export async function getGroupDetails(groupId: string): Promise<GroupDetails> {
-  const { data } = await apiClient.get<GroupDetails | GroupDetailsResponse>(`/groups/${groupId}`)
+export async function getGroupDetails(groupId: string, signal?: AbortSignal): Promise<GroupDetails> {
+  const { data } = await apiClient.get<GroupDetails | GroupDetailsResponse>(`/groups/${groupId}`, {
+    signal,
+  })
 
   if (data && typeof data === 'object' && '_id' in data) {
     return normalizeGroupDetails(data as GroupDetails)
@@ -147,12 +151,13 @@ export async function getGroupQr(groupId: string): Promise<string | null> {
 }
 
 export async function getSuggestedAreas(
-  groupId: string
+  groupId: string,
+  signal?: AbortSignal,
 ): Promise<Array<{ _id: string; name: string; area_type: 'suggestion' | 'meetpoint'; latitude: number; longitude: number; active: boolean; description?: string }>> {
   try {
-    const response = await apiClient.get<any>(`/groups/${groupId}/suggested-areas`)
-
-    console.log('Raw API response:', response)
+    const response = await apiClient.get<any>(`/groups/${groupId}/suggested-areas`, {
+      signal,
+    })
     
     // Try multiple possible response formats
     let areas = null
@@ -170,13 +175,11 @@ export async function getSuggestedAreas(
       areas = response.data.suggested_areas
     }
     
-    console.log('Extracted areas:', areas)
-    
-    const result = Array.isArray(areas) ? areas : []
-    console.log('Final result array length:', result.length)
-    console.log('Final result:', result)
-    return result
+    return Array.isArray(areas) ? areas : []
   } catch (error) {
+    if (signal?.aborted) {
+      return []
+    }
     console.error('getSuggestedAreas error:', error)
     return []
   }

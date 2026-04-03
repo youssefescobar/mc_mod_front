@@ -6,11 +6,12 @@ interface RemindersResponse {
   reminders?: ReminderItem[]
 }
 
-export async function getReminders(groupId: string): Promise<ReminderItem[]> {
+export async function getReminders(groupId: string, signal?: AbortSignal): Promise<ReminderItem[]> {
   const { data } = await apiClient.get<ReminderItem[] | RemindersResponse>(
     '/reminders',
     {
       params: { group_id: groupId },
+      signal,
     },
   )
 

@@ -1,6 +1,6 @@
-import { Plus, Upload, AlertCircle, Copy, ChevronDown } from 'lucide-react'
+import { Plus, Upload, AlertCircle, Copy, ChevronDown, ArrowLeft } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 
 import { PageHeader } from '@/components/layout/page-header'
@@ -73,6 +73,7 @@ const VISA_STATUSES: NonNullable<NonNullable<ProvisionPilgrimInput['visa']>['sta
 
 export function GroupPilgrimsPage() {
   const { groupId = '' } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [group, setGroup] = useState<GroupDetails | null>(null)
   const [selectedPilgrim, setSelectedPilgrim] = useState<UserMarker | null>(null)
   const [showPilgrimDialog, setShowPilgrimDialog] = useState(false)
@@ -124,7 +125,7 @@ export function GroupPilgrimsPage() {
     }
   }, [isCreatePanelOpen])
 
-  const handleViewProfile = (pilgrimId: string) => {
+  const handleViewProfile = useCallback((pilgrimId: string) => {
     const pilgrim = group?.pilgrims?.find((p) => p._id === pilgrimId)
     if (!pilgrim) return
 
@@ -139,7 +140,21 @@ export function GroupPilgrimsPage() {
       last_active_at: pilgrim.last_active_at || undefined,
     })
     setShowPilgrimDialog(true)
-  }
+  }, [group])
+
+  useEffect(() => {
+    const openPilgrimId = searchParams.get('openPilgrim')
+    if (!group || !openPilgrimId) return
+
+    const pilgrimExists = group.pilgrims?.some((p) => p._id === openPilgrimId)
+    if (!pilgrimExists) return
+
+    handleViewProfile(openPilgrimId)
+
+    const next = new URLSearchParams(searchParams)
+    next.delete('openPilgrim')
+    setSearchParams(next, { replace: true })
+  }, [group, handleViewProfile, searchParams, setSearchParams])
 
   const handleRemovePilgrim = async (pilgrimId: string) => {
     try {
@@ -254,8 +269,10 @@ export function GroupPilgrimsPage() {
         title={`${group.group_name} - Pilgrims`}
         description="Create pilgrims one-by-one or in bulk, then share one-time QR login tokens."
         action={
-          <Button asChild variant="outline">
-            <Link to={`/app/groups/${group._id}`}>Back to Group</Link>
+          <Button asChild variant="outline" size="icon" aria-label="Back to group" title="Back to group">
+            <Link to={`/app/groups/${group._id}`}>
+              <ArrowLeft className="size-4" />
+            </Link>
           </Button>
         }
       />

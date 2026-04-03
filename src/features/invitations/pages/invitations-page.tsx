@@ -1,5 +1,6 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { useParams } from 'react-router-dom'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { ArrowLeft, MailPlus, SendHorizontal, Users } from 'lucide-react'
 
 import { PageHeader } from '@/components/layout/page-header'
 import { Badge } from '@/components/ui/badge'
@@ -30,10 +31,19 @@ export function InvitationsPage() {
   const [groupId, setGroupId] = useState('')
   const [email, setEmail] = useState('')
   const [items, setItems] = useState<InvitationItem[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const loadSeqRef = useRef(0)
   const { t } = useI18n()
 
   const activeGroupId = routeGroupId || groupId
   const activeGroup = groups.find((group) => group._id === activeGroupId)
+
+  const getStatusTone = (status: string) => {
+    if (status === 'accepted') return 'bg-emerald-100 text-emerald-700 border-emerald-200'
+    if (status === 'pending') return 'bg-amber-100 text-amber-700 border-amber-200'
+    if (status === 'declined') return 'bg-rose-100 text-rose-700 border-rose-200'
+    return 'bg-muted text-muted-foreground border-border'
+  }
 
   const visibleItems = routeGroupId
     ? items.filter((item) => {
@@ -43,35 +53,57 @@ export function InvitationsPage() {
       })
     : items
 
-  const loadInvitations = async () => {
-    const data = await getInvitations()
+  const loadInvitations = async (signal?: AbortSignal) => {
+    const requestSeq = ++loadSeqRef.current
+    const data = await getInvitations(signal)
+    if (loadSeqRef.current !== requestSeq) return
     setItems(data)
   }
 
   useEffect(() => {
+    const controller = new AbortController()
+    const requestSeq = ++loadSeqRef.current
+
     const load = async () => {
-      const groupData = await getGroupsDashboard()
-      setGroups(groupData)
-      if (routeGroupId) {
-        setGroupId(routeGroupId)
-      } else if (groupData.length > 0) {
-        setGroupId(groupData[0]._id)
+      try {
+        const groupData = await getGroupsDashboard(controller.signal)
+        if (loadSeqRef.current !== requestSeq) return
+        setGroups(groupData)
+        if (routeGroupId) {
+          setGroupId(routeGroupId)
+        } else if (groupData.length > 0) {
+          setGroupId(groupData[0]._id)
+        }
+        await loadInvitations(controller.signal)
+      } catch (error) {
+        if (controller.signal.aborted) return
+        console.error('Failed to load invitations page data', error)
       }
-      await loadInvitations()
     }
 
     void load()
+
+    return () => {
+      controller.abort()
+    }
   }, [routeGroupId])
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    await sendGroupInvitation(groupId, email)
-    setEmail('')
-    await loadInvitations()
+    if (!groupId || !email.trim() || isSubmitting) return
+
+    setIsSubmitting(true)
+    try {
+      await sendGroupInvitation(groupId, email)
+      setEmail('')
+      await loadInvitations()
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
-    <div>
+    <div className="space-y-5">
       <PageHeader
         title={t('invitations.title')}
         description={
@@ -79,92 +111,137 @@ export function InvitationsPage() {
             ? `Manage invitations for ${activeGroup?.group_name ?? 'this group'}.`
             : t('invitations.description')
         }
+        action={
+          activeGroupId ? (
+            <Button asChild variant="outline" size="icon" aria-label="Back to group" title="Back to group">
+              <Link to={`/app/groups/${activeGroupId}`}>
+                <ArrowLeft className="size-4" />
+              </Link>
+            </Button>
+          ) : undefined
+        }
       />
 
-      <form onSubmit={onSubmit} className="mb-6 grid gap-4 rounded-2xl border border-border bg-card p-5 lg:grid-cols-3">
-        {routeGroupId ? (
-          <div className="space-y-2">
-            <Label>{t('invitations.group')}</Label>
-            <Input value={activeGroup?.group_name ?? 'Loading...'} readOnly />
+      <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+        <section className="rounded-3xl border border-border/80 bg-card p-5 shadow-sm">
+          <div className="mb-4">
+            <p className="inline-flex items-center gap-2 rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-800">
+              <MailPlus className="size-3.5" />
+              Invitation Composer
+            </p>
+            <h3 className="mt-2.5 text-lg font-semibold text-foreground">Invite a moderator</h3>
+            <p className="text-sm text-muted-foreground">Send invitation links to the right group and track responses.</p>
           </div>
-        ) : (
-          <div className="space-y-2">
-            <Label>{t('invitations.group')}</Label>
-            <Select value={groupId} onValueChange={setGroupId}>
-              <SelectTrigger>
-                <SelectValue placeholder={t('groups.group')} />
-              </SelectTrigger>
-              <SelectContent>
-                {groups.map((group) => (
-                  <SelectItem key={group._id} value={group._id}>
-                    {group.group_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
 
-        <div className="space-y-2 lg:col-span-2">
-          <Label>{t('invitations.email')}</Label>
-          <Input
-            type="email"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="moderator@example.com"
-          />
-        </div>
-
-        <Button type="submit" className="lg:col-span-3">
-          {t('invitations.send')}
-        </Button>
-      </form>
-
-      <div className="space-y-3">
-        {visibleItems.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('invitations.no_items')}</p>
-        ) : null}
-
-        {visibleItems.map((item) => (
-          <article key={item._id} className="rounded-xl border border-border bg-card p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold">{item.invitee_email}</p>
-                <p className="text-xs text-muted-foreground">
-                  Group: {typeof item.group_id === 'object' ? item.group_id.group_name : 'Unknown'}
-                </p>
+          <form onSubmit={onSubmit} className="grid gap-4 md:grid-cols-2">
+            {routeGroupId ? (
+              <div className="space-y-2 md:col-span-2">
+                <Label>{t('invitations.group')}</Label>
+                <Input
+                  value={activeGroup?.group_name ?? 'Loading...'}
+                  readOnly
+                  className="h-11 rounded-2xl border-border bg-muted text-muted-foreground"
+                />
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary">{item.status}</Badge>
-                {item.status === 'pending' ? (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={async () => {
-                        await acceptInvitation(item._id)
-                        await loadInvitations()
-                      }}
-                    >
-                      {t('invitations.accept')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={async () => {
-                        await declineInvitation(item._id)
-                        await loadInvitations()
-                      }}
-                    >
-                      {t('invitations.decline')}
-                    </Button>
-                  </>
-                ) : null}
+            ) : (
+              <div className="space-y-2 md:col-span-2">
+                <Label>{t('invitations.group')}</Label>
+                <Select value={groupId} onValueChange={setGroupId}>
+                  <SelectTrigger className="h-11 rounded-2xl">
+                    <SelectValue placeholder={t('groups.group')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groups.map((group) => (
+                      <SelectItem key={group._id} value={group._id}>
+                        {group.group_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+            )}
+
+            <div className="space-y-2 md:col-span-2">
+              <Label>{t('invitations.email')}</Label>
+              <Input
+                type="email"
+                required
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="moderator@example.com"
+                className="h-11 rounded-2xl"
+              />
             </div>
-          </article>
-        ))}
+
+            <div className="md:col-span-2 flex items-center justify-between rounded-2xl bg-muted/60 px-4 py-2.5 text-sm text-muted-foreground">
+              <span className="inline-flex items-center gap-2">
+                <Users className="size-4" />
+                Total invitations: {visibleItems.length}
+              </span>
+              <Badge variant="secondary">
+                {visibleItems.filter((item) => item.status === 'pending').length} pending
+              </Badge>
+            </div>
+
+            <Button type="submit" className="md:col-span-2 h-11 rounded-2xl" disabled={isSubmitting || !groupId || !email.trim()}>
+              <SendHorizontal className="mr-2 size-4" />
+              {isSubmitting ? 'Sending...' : t('invitations.send')}
+            </Button>
+          </form>
+        </section>
+
+        <section className="rounded-3xl border border-border/80 bg-card p-4 shadow-sm xl:sticky xl:top-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">Invitation Activity</h3>
+            <Badge variant="secondary">{visibleItems.length}</Badge>
+          </div>
+
+          <div className="space-y-2.5 xl:max-h-[70vh] xl:overflow-y-auto xl:pr-1">
+            {visibleItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t('invitations.no_items')}</p>
+            ) : null}
+
+            {visibleItems.map((item) => (
+              <article key={item._id} className="rounded-2xl border border-border/80 bg-card/95 p-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{item.invitee_email}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Group: {typeof item.group_id === 'object' ? item.group_id.group_name : 'Unknown'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className={`border ${getStatusTone(item.status)}`}>{item.status}</Badge>
+                    {item.status === 'pending' ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            await acceptInvitation(item._id)
+                            await loadInvitations()
+                          }}
+                        >
+                          {t('invitations.accept')}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            await declineInvitation(item._id)
+                            await loadInvitations()
+                          }}
+                        >
+                          {t('invitations.decline')}
+                        </Button>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   )

@@ -1,5 +1,5 @@
 import { Bell, MapPinned, TriangleAlert, Users } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { PageHeader } from '@/components/layout/page-header'
 import { Badge } from '@/components/ui/badge'
@@ -20,21 +20,36 @@ export function DashboardPage() {
   const [groups, setGroups] = useState<GroupSummary[]>([])
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const loadSeqRef = useRef(0)
   const { t } = useI18n()
 
   useEffect(() => {
+    const controller = new AbortController()
+    const requestSeq = ++loadSeqRef.current
+
     const load = async () => {
-      const [groupData, notificationData, unread] = await Promise.all([
-        getGroupsDashboard(),
-        getNotifications(),
-        getUnreadCount(),
-      ])
-      setGroups(groupData)
-      setNotifications(notificationData)
-      setUnreadCount(unread)
+      try {
+        const [groupDataResult, notificationDataResult, unreadResult] = await Promise.allSettled([
+          getGroupsDashboard(controller.signal),
+          getNotifications({ signal: controller.signal, force: true }),
+          getUnreadCount({ signal: controller.signal, force: true }),
+        ])
+        if (loadSeqRef.current !== requestSeq) return
+
+        setGroups(groupDataResult.status === 'fulfilled' ? groupDataResult.value : [])
+        setNotifications(notificationDataResult.status === 'fulfilled' ? notificationDataResult.value : [])
+        setUnreadCount(unreadResult.status === 'fulfilled' ? unreadResult.value : 0)
+      } catch (error) {
+        if (controller.signal.aborted) return
+        console.error('Failed to load dashboard data', error)
+      }
     }
 
     void load()
+
+    return () => {
+      controller.abort()
+    }
   }, [])
 
   const totals = useMemo(() => {

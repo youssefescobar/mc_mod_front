@@ -1,4 +1,4 @@
-import { AlertCircle, ChevronDown, ExternalLink, Search, Trash2, Edit2 } from 'lucide-react'
+import { AlertCircle, ChevronDown, ExternalLink, Search, Trash2, Edit2, ArrowLeft } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
@@ -64,6 +64,7 @@ export function GroupMapPage() {
     longitude: '',
     description: '',
   })
+  const loadSeqRef = useRef(0)
   const [isEditingArea, setIsEditingArea] = useState(false)
   const [deletingAreaId, setDeletingAreaId] = useState<string | null>(null)
   const [isDeletingArea, setIsDeletingArea] = useState(false)
@@ -71,23 +72,33 @@ export function GroupMapPage() {
   useEffect(() => {
     if (!groupId) return
 
+    const controller = new AbortController()
+    const requestSeq = ++loadSeqRef.current
+
     const load = async () => {
       try {
         const [groupData, areasData] = await Promise.all([
-          getGroupDetails(groupId),
-          getSuggestedAreas(groupId),
+          getGroupDetails(groupId, controller.signal),
+          getSuggestedAreas(groupId, controller.signal),
         ])
+        if (loadSeqRef.current !== requestSeq) return
         console.log('Loaded suggested areas:', areasData)
         setGroup(groupData)
         setSuggestedAreas(areasData)
       } catch (error) {
+        if (controller.signal.aborted) return
         console.error('Failed to load group map data', error)
       } finally {
+        if (loadSeqRef.current !== requestSeq) return
         setLoading(false)
       }
     }
 
     void load()
+
+    return () => {
+      controller.abort()
+    }
   }, [groupId])
 
   if (loading) return <p className="text-sm text-muted-foreground">Loading group map...</p>
@@ -117,7 +128,9 @@ export function GroupMapPage() {
         areaForm.description.trim() || undefined,
       )
 
+      const requestSeq = ++loadSeqRef.current
       const refreshedAreas = await getSuggestedAreas(groupId)
+      if (loadSeqRef.current !== requestSeq) return
       setSuggestedAreas(refreshedAreas)
       setAreaForm({
         name: '',
@@ -210,7 +223,9 @@ export function GroupMapPage() {
         editForm.description.trim() || undefined,
       )
 
+      const requestSeq = ++loadSeqRef.current
       const refreshedAreas = await getSuggestedAreas(groupId)
+      if (loadSeqRef.current !== requestSeq) return
       setSuggestedAreas(refreshedAreas)
       setEditingAreaId(null)
     } catch (error) {
@@ -227,7 +242,9 @@ export function GroupMapPage() {
     setIsDeletingArea(true)
     try {
       await removeSuggestedArea(groupId, deletingAreaId)
+      const requestSeq = ++loadSeqRef.current
       const refreshedAreas = await getSuggestedAreas(groupId)
+      if (loadSeqRef.current !== requestSeq) return
       setSuggestedAreas(refreshedAreas)
       setDeletingAreaId(null)
     } catch (error) {
@@ -262,8 +279,10 @@ export function GroupMapPage() {
         title={`${group.group_name} - Group Map`}
         description="Live group map with pilgrim locations, suggested areas, and meetpoints."
         action={
-          <Button asChild variant="outline">
-            <Link to={`/app/groups/${group._id}`}>Back to Group</Link>
+          <Button asChild variant="outline" size="icon" aria-label="Back to group" title="Back to group">
+            <Link to={`/app/groups/${group._id}`}>
+              <ArrowLeft className="size-4" />
+            </Link>
           </Button>
         }
       />

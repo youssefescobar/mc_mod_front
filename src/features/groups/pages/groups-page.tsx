@@ -1,5 +1,5 @@
-import { MoreHorizontal, Plus, Share2, Trash2 } from 'lucide-react'
-import { useEffect, useState, type FormEvent } from 'react'
+import { Bell, MoreHorizontal, Plus, Share2, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { PageHeader } from '@/components/layout/page-header'
@@ -30,29 +30,92 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { createGroup, deleteGroup, getGroupsDashboard } from '@/services/api/groups-api'
+import { getNotifications } from '@/services/api/notifications-api'
 import { useI18n } from '@/i18n/use-i18n'
 import { ShareGroupCodeDialog } from '@/features/groups/components/share-group-code-dialog'
+import { useAuth } from '@/features/auth/auth-context'
+import { bindCommonRefreshEvents } from '@/services/realtime/common-events'
+import { getRealtimeSocket } from '@/services/realtime/socket'
 import type { GroupSummary } from '@/types/groups'
 
 export function GroupsPage() {
   const [groups, setGroups] = useState<GroupSummary[]>([])
+  const [groupUnreadCounts, setGroupUnreadCounts] = useState<Record<string, number>>({})
   const [isOpen, setIsOpen] = useState(false)
   const [groupName, setGroupName] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isDeletingGroupId, setIsDeletingGroupId] = useState<string | null>(null)
   const [shareGroupId, setShareGroupId] = useState<string | null>(null)
   const [deleteGroupId, setDeleteGroupId] = useState<string | null>(null)
+  const isRefreshingUnreadRef = useRef(false)
+  const hasQueuedUnreadRefreshRef = useRef(false)
   const { t } = useI18n()
+  const { user } = useAuth()
   const navigate = useNavigate()
+
+  const getEntityId = (value: unknown): string | null => {
+    if (!value) return null
+    if (typeof value === 'string') return value
+    if (typeof value === 'object' && '_id' in value) {
+      const nestedId = (value as { _id?: unknown })._id
+      return typeof nestedId === 'string' ? nestedId : null
+    }
+    return null
+  }
 
   const loadGroups = async () => {
     const data = await getGroupsDashboard()
     setGroups(data)
   }
 
+  const loadGroupUnreadCounts = async () => {
+    if (isRefreshingUnreadRef.current) {
+      hasQueuedUnreadRefreshRef.current = true
+      return
+    }
+
+    isRefreshingUnreadRef.current = true
+    try {
+      do {
+        hasQueuedUnreadRefreshRef.current = false
+
+        const notifications = await getNotifications()
+        const nextCounts: Record<string, number> = {}
+
+        notifications.forEach((item) => {
+          if (item.read) return
+          const groupId = getEntityId(item.data?.group_id)
+          if (!groupId) return
+          nextCounts[groupId] = (nextCounts[groupId] ?? 0) + 1
+        })
+
+        setGroupUnreadCounts(nextCounts)
+      } while (hasQueuedUnreadRefreshRef.current)
+    } finally {
+      isRefreshingUnreadRef.current = false
+    }
+  }
+
   useEffect(() => {
-    void loadGroups()
+    void Promise.all([loadGroups(), loadGroupUnreadCounts()])
   }, [])
+
+  useEffect(() => {
+    if (!user) return
+
+    const socket = getRealtimeSocket(user)
+    const refresh = () => {
+      void loadGroupUnreadCounts()
+    }
+
+    const unbindCommonRefresh = bindCommonRefreshEvents(socket, refresh)
+    socket.on('sos-alert-received', refresh)
+
+    return () => {
+      unbindCommonRefresh()
+      socket.off('sos-alert-received', refresh)
+    }
+  }, [user])
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -62,7 +125,7 @@ export function GroupsPage() {
       await createGroup(groupName)
       setGroupName('')
       setIsOpen(false)
-      await loadGroups()
+      await Promise.all([loadGroups(), loadGroupUnreadCounts()])
     } finally {
       setIsSaving(false)
     }
@@ -74,7 +137,7 @@ export function GroupsPage() {
     setIsDeletingGroupId(groupId)
     try {
       await deleteGroup(groupId)
-      await loadGroups()
+      await Promise.all([loadGroups(), loadGroupUnreadCounts()])
     } catch (error) {
       console.error('Failed to delete group', error)
     } finally {
@@ -146,7 +209,17 @@ export function GroupsPage() {
                 }}
                 tabIndex={0}
               >
-                <TableCell className="font-medium">{group.group_name}</TableCell>
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-2">
+                    <span>{group.group_name}</span>
+                    {(groupUnreadCounts[group._id] ?? 0) > 0 ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+                        <Bell className="size-3" />
+                        {groupUnreadCounts[group._id] > 99 ? '99+' : groupUnreadCounts[group._id]}
+                      </span>
+                    ) : null}
+                  </div>
+                </TableCell>
                 <TableCell>
                   <Badge variant="secondary">{group.group_code}</Badge>
                 </TableCell>
