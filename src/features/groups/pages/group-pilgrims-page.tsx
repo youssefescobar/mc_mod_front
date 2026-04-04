@@ -42,10 +42,12 @@ import { PilgrimProfileDialog } from '@/features/groups/components/pilgrim-profi
 import { UserActionMenu } from '@/features/groups/components/user-action-menu'
 import {
   getGroupDetails,
+  getGroupResourceOptions,
   provisionPilgrim,
   provisionPilgrimsBulk,
   removePilgrimFromGroup,
 } from '@/services/api/groups-api'
+import type { GroupResourceOptionBus, GroupResourceOptionHotel } from '@/services/api/groups-api'
 import type { GroupDetails } from '@/types/groups'
 import type { UserMarker } from '@/types/map'
 import type { ProvisionPilgrimInput, ProvisionPilgrimResult } from '@/types/pilgrims'
@@ -82,6 +84,8 @@ export function GroupPilgrimsPage() {
   const [isProvisioningOne, setIsProvisioningOne] = useState(false)
   const [isProvisioningBulk, setIsProvisioningBulk] = useState(false)
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false)
+  const [resourceHotels, setResourceHotels] = useState<GroupResourceOptionHotel[]>([])
+  const [resourceBuses, setResourceBuses] = useState<GroupResourceOptionBus[]>([])
   const [bulkErrors, setBulkErrors] = useState<string[]>([])
   const [provisioned, setProvisioned] = useState<ProvisionPilgrimResult[]>([])
   const createPanelRef = useRef<HTMLDivElement | null>(null)
@@ -108,6 +112,24 @@ export function GroupPilgrimsPage() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (!groupId) return
+
+    const fetchResourceOptions = async () => {
+      try {
+        const options = await getGroupResourceOptions(groupId)
+        setResourceHotels(options.hotels)
+        setResourceBuses(options.buses)
+      } catch (error) {
+        console.error('Failed to load group resource options', error)
+        setResourceHotels([])
+        setResourceBuses([])
+      }
+    }
+
+    void fetchResourceOptions()
+  }, [groupId])
 
   useEffect(() => {
     if (!isCreatePanelOpen) return
@@ -257,6 +279,22 @@ export function GroupPilgrimsPage() {
   }
 
   const provisionedPreview = useMemo(() => provisioned.slice(0, 15), [provisioned])
+  const selectedHotel = useMemo(
+    () => resourceHotels.find((hotel) => hotel._id === form.hotel_id),
+    [form.hotel_id, resourceHotels],
+  )
+
+  useEffect(() => {
+    if (!selectedHotel) {
+      setForm((prev) => ({ ...prev, room_id: undefined, room_number: undefined }))
+      return
+    }
+
+    const roomExists = (selectedHotel.rooms || []).some((room) => room._id === form.room_id)
+    if (!roomExists) {
+      setForm((prev) => ({ ...prev, room_id: undefined, room_number: undefined }))
+    }
+  }, [form.room_id, selectedHotel])
 
   if (loading) return <p className="text-sm text-muted-foreground">Loading group pilgrims...</p>
   if (!group) return <p className="text-sm text-muted-foreground">Group not found</p>
@@ -315,16 +353,89 @@ export function GroupPilgrimsPage() {
                 <Input type="number" value={form.age ?? ''} onChange={(e) => setForm((p) => ({ ...p, age: e.target.value ? Number(e.target.value) : undefined }))} />
               </div>
               <div className="space-y-1">
-                <Label>Room number</Label>
-                <Input value={form.room_number || ''} onChange={(e) => setForm((p) => ({ ...p, room_number: e.target.value }))} />
+                <Label>Hotel</Label>
+                <Select
+                  value={form.hotel_id || 'none'}
+                  onValueChange={(value) => {
+                    const nextHotelId = value === 'none' ? undefined : value
+                    const hotel = resourceHotels.find((item) => item._id === nextHotelId)
+                    setForm((p) => ({
+                      ...p,
+                      hotel_id: nextHotelId,
+                      hotel_name: hotel?.name,
+                      room_id: undefined,
+                      room_number: undefined,
+                    }))
+                  }}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No hotel</SelectItem>
+                    {resourceHotels.map((hotel) => (
+                      <SelectItem key={hotel._id} value={hotel._id}>{hotel.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
-                <Label>Bus info</Label>
-                <Input value={form.bus_info || ''} onChange={(e) => setForm((p) => ({ ...p, bus_info: e.target.value }))} />
+                <Label>Room</Label>
+                <Select
+                  value={form.room_id || 'none'}
+                  disabled={!selectedHotel}
+                  onValueChange={(value) => {
+                    if (value === 'none') {
+                      setForm((p) => ({ ...p, room_id: undefined, room_number: undefined }))
+                      return
+                    }
+
+                    const room = (selectedHotel?.rooms || []).find((item) => item._id === value)
+                    setForm((p) => ({
+                      ...p,
+                      room_id: value,
+                      room_number: room?.room_number,
+                    }))
+                  }}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No room</SelectItem>
+                    {(selectedHotel?.rooms || [])
+                      .filter((room) => room.active !== false)
+                      .map((room) => (
+                        <SelectItem key={room._id} value={room._id}>
+                          {room.room_number}{room.floor ? ` - floor ${room.floor}` : ''}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
-                <Label>Hotel name</Label>
-                <Input value={form.hotel_name || ''} onChange={(e) => setForm((p) => ({ ...p, hotel_name: e.target.value }))} />
+                <Label>Bus</Label>
+                <Select
+                  value={form.bus_id || 'none'}
+                  onValueChange={(value) => {
+                    if (value === 'none') {
+                      setForm((p) => ({ ...p, bus_id: undefined, bus_info: undefined }))
+                      return
+                    }
+                    const bus = resourceBuses.find((item) => item._id === value)
+                    setForm((p) => ({
+                      ...p,
+                      bus_id: value,
+                      bus_info: bus ? `${bus.bus_number} - ${bus.destination}` : undefined,
+                    }))
+                  }}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No bus</SelectItem>
+                    {resourceBuses.map((bus) => (
+                      <SelectItem key={bus._id} value={bus._id}>
+                        {bus.bus_number} - {bus.destination}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label>Language</Label>

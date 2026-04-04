@@ -8,8 +8,11 @@ export interface ProvisionPilgrimInput {
   language?: 'en' | 'ar' | 'ur' | 'fr' | 'id' | 'tr'
   medical_history?: string
   room_number?: string
+  room_id?: string
   bus_info?: string
+  bus_id?: string
   hotel_name?: string
+  hotel_id?: string
   ethnicity?:
     | 'Arab'
     | 'South Asian'
@@ -43,4 +46,30 @@ export interface ProvisionPilgrimResult {
     qr_payload: string
     qr_code_data_url: string
   }
+}
+
+export type PilgrimProvisioningStatus = 'pending' | 'activated' | 'expired'
+
+export interface PilgrimProvisioningLifecycleItem {
+  pilgrim: {
+    _id: string
+    full_name: string
+    phone_number: string
+  }
+  one_time_login: {
+    token: string | null
+    issued_at: string | null
+    expires_at: string | null
+    used_at: string | null
+    qr_code_data_url: string | null
+  }
+  status: PilgrimProvisioningStatus
+}
+
+export interface PilgrimProvisioningSummary {
+  total_provisioned: number
+  pending_count: number
+  activated_count: number
+  expired_count: number
+  pending_with_visible_token_count: number
 }

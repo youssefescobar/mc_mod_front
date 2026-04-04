@@ -4,6 +4,9 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  UserPlus,
   Trash2,
   Users,
   UserCircle2,
@@ -40,32 +43,35 @@ function NavItem({
   label,
   icon: Icon,
   count,
+  collapsed,
   onNavigate,
 }: {
   to: string
   label: string
   icon: React.ComponentType<{ className?: string }>
   count?: number
+  collapsed?: boolean
   onNavigate?: () => void
 }) {
   return (
     <NavLink
       to={to}
       onClick={onNavigate}
+      title={collapsed ? label : undefined}
       className={({ isActive }) =>
-        `flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${
+        `flex items-center ${collapsed ? 'justify-center' : 'justify-between'} gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${
           isActive
             ? 'bg-primary text-primary-foreground shadow-sm'
             : 'text-muted-foreground hover:bg-muted hover:text-foreground'
         }`
       }
     >
-      <span className="flex min-w-0 items-center gap-3">
+      <span className={`flex min-w-0 items-center ${collapsed ? '' : 'gap-3'}`}>
         <Icon className="size-4" />
-        <span className="truncate">{label}</span>
+        {collapsed ? null : <span className="truncate">{label}</span>}
       </span>
       {count && count > 0 ? (
-        <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+        <span className={`inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white ${collapsed ? 'absolute mt-[-18px] ml-[18px]' : ''}`}>
           {count > 99 ? '99+' : count}
         </span>
       ) : null}
@@ -83,6 +89,13 @@ export function AppShell() {
   const [banner, setBanner] = useState<InAppBanner | null>(null)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
+  const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem('mc_mod_sidebar_collapsed') === '1'
+    } catch {
+      return false
+    }
+  })
   const notificationPanelRef = useRef<HTMLDivElement | null>(null)
   const knownNotificationIdsRef = useRef<Set<string>>(new Set())
   const isFirstSyncRef = useRef(true)
@@ -293,6 +306,14 @@ export function AppShell() {
     setIsMobileNavOpen(false)
   }, [location.pathname])
 
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('mc_mod_sidebar_collapsed', isDesktopSidebarCollapsed ? '1' : '0')
+    } catch {
+      // Ignore localStorage failures.
+    }
+  }, [isDesktopSidebarCollapsed])
+
   const navItems = [
     { to: '/app/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
     {
@@ -304,11 +325,16 @@ export function AppShell() {
         return !item.read && hasGroup ? acc + 1 : acc
       }, 0),
     },
+    {
+      to: '/app/pilgrims/provision',
+      label: 'Pilgrim Provisioning',
+      icon: UserPlus,
+    },
   ]
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[280px_1fr]">
+      <div className={`grid min-h-screen grid-cols-1 ${isDesktopSidebarCollapsed ? 'lg:grid-cols-[86px_1fr]' : 'lg:grid-cols-[280px_1fr]'}`}>
         {isMobileNavOpen ? (
           <button
             type="button"
@@ -319,39 +345,76 @@ export function AppShell() {
         ) : null}
 
         <aside
-          className={`fixed inset-y-0 left-0 z-40 flex w-[280px] transform flex-col border-r border-sidebar-border bg-sidebar p-5 transition-transform duration-200 lg:static lg:h-full lg:min-h-screen lg:w-auto lg:translate-x-0 ${
+          className={`fixed inset-y-0 left-0 z-40 flex w-[280px] transform flex-col border-r border-sidebar-border bg-sidebar p-5 transition-transform duration-200 lg:static lg:h-full lg:min-h-screen lg:translate-x-0 ${isDesktopSidebarCollapsed ? 'lg:w-[86px] lg:px-3' : 'lg:w-[280px]'} ${
             isMobileNavOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
-          <div className="mb-4 flex items-center gap-3">
+          <div className={`mb-4 flex items-center ${isDesktopSidebarCollapsed ? 'justify-center' : 'justify-between gap-3'}`}>
             <img src={logo} alt="Munawwara Care" className="size-10 rounded-lg object-cover" />
-            <div>
-              <p className="text-sm font-semibold text-sidebar-foreground">{t('app.name')}</p>
-              <p className="text-xs text-muted-foreground">{t('app.subtitle')}</p>
-            </div>
+            {isDesktopSidebarCollapsed ? null : (
+              <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-sidebar-foreground">{t('app.name')}</p>
+                  <p className="text-xs text-muted-foreground">{t('app.subtitle')}</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="hidden shrink-0 lg:inline-flex"
+                  onClick={() => setIsDesktopSidebarCollapsed((prev) => !prev)}
+                  title={isDesktopSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                >
+                  {isDesktopSidebarCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+                  <span className="sr-only">Toggle sidebar</span>
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div className={`mb-1 flex ${isDesktopSidebarCollapsed ? 'justify-center' : 'hidden'}`}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="hidden lg:inline-flex"
+              onClick={() => setIsDesktopSidebarCollapsed((prev) => !prev)}
+              title={isDesktopSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {isDesktopSidebarCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+              <span className="sr-only">Toggle sidebar</span>
+            </Button>
           </div>
 
           <Separator className="my-4" />
 
           <nav className="space-y-1">
             {navItems.map((item) => (
-              <NavItem key={item.to} to={item.to} label={item.label} icon={item.icon} count={item.count} onNavigate={() => setIsMobileNavOpen(false)} />
+              <NavItem key={item.to} to={item.to} label={item.label} icon={item.icon} count={item.count} collapsed={isDesktopSidebarCollapsed} onNavigate={() => setIsMobileNavOpen(false)} />
             ))}
-            <NavItem to="/app/profile" label={t('nav.profile')} icon={UserCircle2} onNavigate={() => setIsMobileNavOpen(false)} />
+            <NavItem to="/app/profile" label={t('nav.profile')} icon={UserCircle2} collapsed={isDesktopSidebarCollapsed} onNavigate={() => setIsMobileNavOpen(false)} />
           </nav>
 
-          <div className="mt-auto rounded-xl border border-border bg-card p-3">
-            <p className="truncate text-sm text-muted-foreground">
-              {t('shell.signed_in_as')}: <span className="font-semibold text-card-foreground">{user?.fullName}</span>
-            </p>
-            <div className="mt-2 flex items-center justify-between">
-              <Badge variant="secondary">{user?.role}</Badge>
-              <Button size="sm" variant="ghost" onClick={() => void signOut()}>
-                <LogOut className="mr-1 size-4" />
-                {t('shell.logout')}
+          {isDesktopSidebarCollapsed ? (
+            <div className="mt-auto flex justify-center">
+              <Button size="icon-sm" variant="ghost" onClick={() => void signOut()} title={t('shell.logout')}>
+                <LogOut className="size-4" />
               </Button>
             </div>
-          </div>
+          ) : (
+            <div className="mt-auto rounded-xl border border-border bg-card p-3">
+              <p className="truncate text-sm text-muted-foreground">
+                {t('shell.signed_in_as')}: <span className="font-semibold text-card-foreground">{user?.fullName}</span>
+              </p>
+              <div className="mt-2 flex items-center justify-between">
+                <Badge variant="secondary">{user?.role}</Badge>
+                <Button size="sm" variant="ghost" onClick={() => void signOut()}>
+                  <LogOut className="mr-1 size-4" />
+                  {t('shell.logout')}
+                </Button>
+              </div>
+            </div>
+          )}
         </aside>
 
         <div className="relative overflow-hidden">

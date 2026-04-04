@@ -11,6 +11,7 @@ import { IndividualChatPage } from '@/features/chat/pages/individual-chat-page'
 import { GroupDetailsPage, GroupMapPage, GroupPilgrimsPage, GroupsPage } from '@/features/groups/pages'
 import { InvitationsPage } from '@/features/invitations/pages/invitations-page'
 import { NotificationsPage } from '@/features/notifications/pages/notifications-page'
+import { PilgrimProvisioningPage } from '@/features/pilgrims/pages'
 import { ProfilePage } from '@/features/profile/pages/profile-page'
 import { RemindersPage } from '@/features/reminders/pages/reminders-page'
 
@@ -28,6 +29,7 @@ export function AppRouter() {
               <Route path="groups" element={<GroupsPage />} />
               <Route path="groups/:groupId" element={<GroupDetailsPage />} />
               <Route path="groups/:groupId/pilgrims" element={<GroupPilgrimsPage />} />
+              <Route path="pilgrims/provision" element={<PilgrimProvisioningPage />} />
               <Route path="groups/:groupId/map" element={<GroupMapPage />} />
               <Route path="groups/:groupId/invitations" element={<InvitationsPage />} />
               <Route path="groups/:groupId/chat" element={<GroupChatPage />} />

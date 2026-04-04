@@ -61,14 +61,14 @@
     --secondary-foreground: #ffffff;
     --muted: #eeeefb;
     --muted-foreground: #64748b;
-    --accent: #d4af37;
-    --accent-foreground: #1a1a4e;
+    --accent: #f6b26b;
+    --accent-foreground: #ffffff;
     --destructive: #dc2626;
     --border: #e2e8f0;
     --input: #e2e8f0;
     --ring: #f97316;
     --chart-1: #f97316;
-    --chart-2: #d4af37;
+    --chart-2: #f6b26b;
     --chart-3: #1a1a4e;
     --chart-4: #64748b;
     --chart-5: #94a3b8;
@@ -96,14 +96,14 @@
     --secondary-foreground: #ffffff;
     --muted: #25303a;
     --muted-foreground: #94a3b8;
-    --accent: #d4af37;
+    --accent: #f7b267;
     --accent-foreground: #0b1220;
     --destructive: #f87171;
     --border: #25303a;
     --input: #25303a;
     --ring: #f97316;
     --chart-1: #f97316;
-    --chart-2: #d4af37;
+    --chart-2: #f7b267;
     --chart-3: #f1f5f9;
     --chart-4: #94a3b8;
     --chart-5: #64748b;
@@ -127,6 +127,16 @@
   html {
     @apply font-sans;
     }
+
+  ::selection {
+    background: color-mix(in oklab, var(--accent) 30%, white 0%);
+    color: var(--foreground);
+  }
+
+  .dark ::selection {
+    background: color-mix(in oklab, var(--accent) 35%, black 10%);
+    color: var(--foreground);
+  }
 }
 
 @layer base {

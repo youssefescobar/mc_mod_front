@@ -1,6 +1,11 @@
 import { apiClient } from '@/services/api/client'
 import type { GroupDetails, GroupSummary } from '@/types/groups'
-import type { ProvisionPilgrimInput, ProvisionPilgrimResult } from '@/types/pilgrims'
+import type {
+  PilgrimProvisioningLifecycleItem,
+  PilgrimProvisioningSummary,
+  ProvisionPilgrimInput,
+  ProvisionPilgrimResult,
+} from '@/types/pilgrims'
 
 interface DashboardResponse {
   success?: boolean
@@ -155,7 +160,14 @@ export async function getSuggestedAreas(
   signal?: AbortSignal,
 ): Promise<Array<{ _id: string; name: string; area_type: 'suggestion' | 'meetpoint'; latitude: number; longitude: number; active: boolean; description?: string }>> {
   try {
-    const response = await apiClient.get<any>(`/groups/${groupId}/suggested-areas`, {
+    type SuggestedAreasResponse =
+      | Array<unknown>
+      | {
+          data?: unknown
+          suggested_areas?: unknown
+        }
+
+    const response = await apiClient.get<SuggestedAreasResponse>(`/groups/${groupId}/suggested-areas`, {
       signal,
     })
     
@@ -163,7 +175,7 @@ export async function getSuggestedAreas(
     let areas = null
     
     // Format 1: response.data.data = array
-    if (response.data?.data && Array.isArray(response.data.data)) {
+    if (response.data && !Array.isArray(response.data) && Array.isArray(response.data.data)) {
       areas = response.data.data
     }
     // Format 2: response.data = array directly
@@ -171,7 +183,7 @@ export async function getSuggestedAreas(
       areas = response.data
     }
     // Format 3: response.data.suggested_areas = array
-    else if (response.data?.suggested_areas && Array.isArray(response.data.suggested_areas)) {
+    else if (response.data && !Array.isArray(response.data) && Array.isArray(response.data.suggested_areas)) {
       areas = response.data.suggested_areas
     }
     
@@ -251,4 +263,74 @@ export async function provisionPilgrimsBulk(
 }> {
   const { data } = await apiClient.post(`/auth/groups/${groupId}/provision-pilgrims-bulk`, { pilgrims })
   return data?.data ?? data
+}
+
+export interface GroupResourceOptionRoom {
+  _id: string
+  room_number: string
+  floor?: string | null
+  capacity?: number
+  active?: boolean
+}
+
+export interface GroupResourceOptionHotel {
+  _id: string
+  name: string
+  city?: string | null
+  rooms?: GroupResourceOptionRoom[]
+}
+
+export interface GroupResourceOptionBus {
+  _id: string
+  bus_number: string
+  destination: string
+  departure_time: string
+  driver_name?: string
+}
+
+export async function getGroupResourceOptions(
+  groupId: string,
+): Promise<{ hotels: GroupResourceOptionHotel[]; buses: GroupResourceOptionBus[] }> {
+  const { data } = await apiClient.get(`/groups/${groupId}/resource-options`)
+  const payload = data?.data ?? data ?? {}
+
+  return {
+    hotels: Array.isArray(payload.hotels) ? payload.hotels : [],
+    buses: Array.isArray(payload.buses) ? payload.buses : [],
+  }
+}
+
+export async function getGroupProvisioningStatus(
+  groupId: string,
+): Promise<{ summary: PilgrimProvisioningSummary; items: PilgrimProvisioningLifecycleItem[] }> {
+  const { data } = await apiClient.get(`/auth/groups/${groupId}/provisioning-status`)
+  const payload = data?.data ?? data ?? {}
+
+  const summary = payload.summary ?? {
+    total_provisioned: 0,
+    pending_count: 0,
+    activated_count: 0,
+    expired_count: 0,
+    pending_with_visible_token_count: 0,
+  }
+
+  return {
+    summary,
+    items: Array.isArray(payload.items) ? payload.items : [],
+  }
+}
+
+export async function reissueGroupPilgrimLogin(
+  groupId: string,
+  pilgrimId: string,
+): Promise<{ pilgrim: { _id: string; full_name: string; phone_number: string }; one_time_login: { token: string; expires_at: string; qr_payload: string; qr_code_data_url: string } }> {
+  const { data } = await apiClient.post(`/auth/groups/${groupId}/pilgrims/${pilgrimId}/reissue-login`)
+  return data?.data ?? data
+}
+
+export async function deleteProvisionedPilgrim(
+  groupId: string,
+  pilgrimId: string,
+): Promise<void> {
+  await apiClient.delete(`/auth/groups/${groupId}/pilgrims/${pilgrimId}`)
 }

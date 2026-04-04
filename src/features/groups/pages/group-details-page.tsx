@@ -1,6 +1,8 @@
 import {
   ArrowRight,
   BellRing,
+  Bus,
+  Building2,
   Copy,
   Mail,
   MapPinned,
@@ -43,6 +45,8 @@ export function GroupDetailsPage() {
 
   const pilgrims = group.pilgrims ?? []
   const leadModerator = group.moderator_ids?.[0]?.full_name
+  const assignedHotels = group.assigned_hotel_ids ?? []
+  const assignedBuses = group.assigned_bus_ids ?? []
 
   const actionItems = [
     {
@@ -157,6 +161,63 @@ export function GroupDetailsPage() {
             </Link>
           )
         })}
+      </div>
+
+      <div className="mt-6 grid gap-3 lg:grid-cols-2">
+        <Card className="border-border/80">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Building2 className="size-4 text-primary" />
+              Assigned Hotels
+            </CardTitle>
+            <CardDescription>
+              Hotels available for pilgrim assignment in this group.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 pt-0">
+            {assignedHotels.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No hotels assigned by admin yet.</p>
+            ) : (
+              assignedHotels.map((hotel) => (
+                <div key={hotel._id} className="rounded-lg border border-border p-2.5">
+                  <p className="text-sm font-semibold text-foreground">{hotel.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {hotel.city || 'No city'} · {hotel.rooms?.filter((room) => room.active !== false).length ?? 0} rooms
+                  </p>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/80">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Bus className="size-4 text-primary" />
+              Assigned Buses
+            </CardTitle>
+            <CardDescription>
+              Buses available for pilgrim assignment in this group.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 pt-0">
+            {assignedBuses.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No buses assigned by admin yet.</p>
+            ) : (
+              assignedBuses.map((bus) => (
+                <div key={bus._id} className="rounded-lg border border-border p-2.5">
+                  <p className="text-sm font-semibold text-foreground">
+                    {bus.bus_number} · {bus.destination}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {bus.driver_name ? `Driver: ${bus.driver_name}` : 'Driver not set'}
+                    {bus.departure_time ? ` · ${new Date(bus.departure_time).toLocaleString()}` : ''}
+                  </p>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <ShareGroupCodeDialog
