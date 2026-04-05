@@ -89,6 +89,7 @@ function normalizeGroupSummary(group: RawGroupSummary): GroupSummary {
 
   return {
     ...group,
+    _id: group._id || group.id || '',
     pilgrim_count: group.pilgrim_count ?? pilgrimsCountFromArray ?? pilgrimIdsCount ?? 0,
   }
 }

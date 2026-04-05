@@ -34,6 +34,7 @@ export function AppRouter() {
               <Route path="groups/:groupId/invitations" element={<InvitationsPage />} />
               <Route path="groups/:groupId/chat" element={<GroupChatPage />} />
               <Route path="groups/:groupId/reminders" element={<RemindersPage />} />
+              <Route path="reminders" element={<RemindersPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="chats/group/:groupId/:recipientId" element={<IndividualChatPage />} />

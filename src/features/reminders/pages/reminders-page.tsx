@@ -1,4 +1,4 @@
-import { ArrowLeft, BellRing, CalendarClock, Repeat2, SendHorizontal } from 'lucide-react'
+import { ArrowLeft, BellRing, CalendarClock, Check, Repeat2, SendHorizontal } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
@@ -7,13 +7,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useI18n } from '@/i18n/use-i18n'
 import { getGroupsDashboard } from '@/services/api/groups-api'
@@ -28,20 +21,24 @@ import type { ReminderItem } from '@/types/notifications'
 export function RemindersPage() {
   const { groupId: routeGroupId = '' } = useParams()
   const [groups, setGroups] = useState<GroupSummary[]>([])
-  const [groupId, setGroupId] = useState('')
+  const [targetType, setTargetType] = useState<'all' | 'group'>('group')
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([])
   const [text, setText] = useState('')
   const [scheduledAt, setScheduledAt] = useState('')
   const [repeatCount, setRepeatCount] = useState(1)
   const [repeatInterval, setRepeatInterval] = useState(15)
+  const [isDaily, setIsDaily] = useState(false)
+  const [timesPerDay, setTimesPerDay] = useState(1)
   const [items, setItems] = useState<ReminderItem[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false)
   const [isCancellingId, setIsCancellingId] = useState<string | null>(null)
-  const loadSeqRef = useRef(0)
+  const loadGroupsSeqRef = useRef(0)
+  const loadRemindersSeqRef = useRef(0)
   const { t } = useI18n()
 
   const reminderItems = Array.isArray(items) ? items : []
-  const activeGroupId = routeGroupId || groupId
-  const activeGroup = groups.find((group) => group._id === activeGroupId)
+  const activeGroup = groups.find((group) => group._id === routeGroupId)
 
   const getStatusTone = (status: string) => {
     if (status === 'active') return 'bg-emerald-100 text-emerald-700 border-emerald-200'
@@ -52,17 +49,16 @@ export function RemindersPage() {
 
   useEffect(() => {
     const controller = new AbortController()
-    const requestSeq = ++loadSeqRef.current
+    const requestSeq = ++loadGroupsSeqRef.current
 
     const loadGroups = async () => {
       try {
         const data = await getGroupsDashboard(controller.signal)
-        if (loadSeqRef.current !== requestSeq) return
+        if (loadGroupsSeqRef.current !== requestSeq) return
         setGroups(data)
         if (routeGroupId) {
-          setGroupId(routeGroupId)
-        } else if (data.length > 0) {
-          setGroupId((prev) => prev || data[0]._id)
+          setTargetType('group')
+          setSelectedGroupIds([routeGroupId])
         }
       } catch (error) {
         if (controller.signal.aborted) return
@@ -78,17 +74,13 @@ export function RemindersPage() {
   }, [routeGroupId])
 
   useEffect(() => {
-    if (!groupId) {
-      return
-    }
-
     const controller = new AbortController()
-    const requestSeq = ++loadSeqRef.current
+    const requestSeq = ++loadRemindersSeqRef.current
 
     const loadReminders = async () => {
       try {
-        const data = await getReminders(groupId, controller.signal)
-        if (loadSeqRef.current !== requestSeq) return
+        const data = await getReminders(routeGroupId || undefined, controller.signal)
+        if (loadRemindersSeqRef.current !== requestSeq) return
         setItems(data)
       } catch (error) {
         if (controller.signal.aborted) return
@@ -101,31 +93,63 @@ export function RemindersPage() {
     return () => {
       controller.abort()
     }
-  }, [groupId])
+  }, [routeGroupId])
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!groupId || !text.trim() || !scheduledAt || isSubmitting) return
+    if (targetType === 'group' && selectedGroupIds.length === 0) return
+    if (!text.trim() || !scheduledAt || isSubmitting) return
 
     setIsSubmitting(true)
     try {
-      await createReminder({
-        group_id: groupId,
-        target_type: 'group',
+      const payloadBase = {
         text,
         scheduled_at: new Date(scheduledAt).toISOString(),
         repeat_count: repeatCount,
         repeat_interval_min: repeatInterval,
-      })
+        is_daily: isDaily,
+        times_per_day: isDaily ? timesPerDay : undefined,
+      }
+
+      if (targetType === 'all') {
+        await createReminder({
+          ...payloadBase,
+          target_type: 'system',
+        })
+      } else {
+        await createReminder({
+          ...payloadBase,
+          group_ids: selectedGroupIds,
+          target_type: 'group',
+        })
+      }
+
       setText('')
       setScheduledAt('')
-      const requestSeq = ++loadSeqRef.current
-      const data = await getReminders(groupId)
-      if (loadSeqRef.current !== requestSeq) return
+      const requestSeq = ++loadRemindersSeqRef.current
+      const data = await getReminders(routeGroupId || undefined)
+      if (loadRemindersSeqRef.current !== requestSeq) return
       setItems(data)
+      setIsSuccess(true)
+      setTimeout(() => setIsSuccess(false), 3000)
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const toggleGroup = (id: string) => {
+    setSelectedGroupIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
+    )
+  }
+
+  const selectAllGroups = () => {
+    setSelectedGroupIds((prev) => {
+      if (prev.length === groups.length && groups.length > 0) {
+        return []
+      }
+      return groups.map((g) => g._id)
+    })
   }
 
   return (
@@ -138,9 +162,9 @@ export function RemindersPage() {
             : t('reminders.description')
         }
         action={
-          activeGroupId ? (
+          routeGroupId ? (
             <Button asChild variant="outline" size="icon" aria-label="Back to group" title="Back to group">
-              <Link to={`/app/groups/${activeGroupId}`}>
+              <Link to={`/app/groups/${routeGroupId}`}>
                 <ArrowLeft className="size-4" />
               </Link>
             </Button>
@@ -157,36 +181,78 @@ export function RemindersPage() {
                 Reminder Composer
               </p>
               <h3 className="mt-2.5 text-lg font-semibold text-foreground">Create a clear reminder</h3>
-              <p className="text-sm text-muted-foreground">Write a short instruction and schedule it once.</p>
+              <p className="text-sm text-muted-foreground">Write a short instruction and schedule it.</p>
             </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            {routeGroupId ? (
-              <div className="space-y-2 md:col-span-2">
-                <Label>{t('reminders.group')}</Label>
-                <Input
-                  value={activeGroup?.group_name ?? 'Loading...'}
-                  readOnly
-                  className="h-11 rounded-2xl border-border bg-muted text-muted-foreground"
-                />
+            {!routeGroupId && (
+              <div className="space-y-3 md:col-span-2">
+                <Label>Target Audience</Label>
+                <div className="flex gap-4">
+                  <Button
+                    type="button"
+                    variant={targetType === 'all' ? 'default' : 'outline'}
+                    onClick={() => setTargetType('all')}
+                    className="rounded-xl"
+                  >
+                    System Wide (All Groups)
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={targetType === 'group' ? 'default' : 'outline'}
+                    onClick={() => setTargetType('group')}
+                    className="rounded-xl"
+                  >
+                    Specific Groups
+                  </Button>
+                </div>
+
+                {targetType === 'group' && (
+                  <div className="space-y-2 rounded-2xl border border-border p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Select Groups</Label>
+                      <Button type="button" variant="ghost" size="sm" onClick={selectAllGroups} className="h-7 text-xs">
+                        {selectedGroupIds.length === groups.length && groups.length > 0 ? 'Deselect All' : 'Select All'}
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-2">
+                      {groups.map((group) => (
+                        <button
+                          type="button"
+                          key={group._id}
+                          className={`flex items-center text-left gap-2 p-2 rounded-xl border transition-colors cursor-pointer ${
+                            selectedGroupIds.includes(group._id)
+                              ? 'bg-primary/5 border-primary'
+                              : 'bg-muted/30 border-transparent hover:bg-muted/50'
+                          }`}
+                          onClick={() => toggleGroup(group._id)}
+                        >
+                          <div className={`flex size-4 shrink-0 items-center justify-center rounded border ${
+                            selectedGroupIds.includes(group._id)
+                              ? 'bg-primary border-primary text-primary-foreground'
+                              : 'border-muted-foreground/30'
+                          }`}>
+                            {selectedGroupIds.includes(group._id) && <Check className="size-3" />}
+                          </div>
+                          <span className="text-sm truncate font-medium">{group.group_name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="space-y-2 md:col-span-2">
-                <Label>{t('reminders.group')}</Label>
-                <Select value={groupId} onValueChange={setGroupId}>
-                  <SelectTrigger className="h-11 rounded-2xl">
-                    <SelectValue placeholder={t('groups.group')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {groups.map((group) => (
-                      <SelectItem key={group._id} value={group._id}>
-                        {group.group_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            )}
+
+            {routeGroupId && (
+               <div className="space-y-2 md:col-span-2">
+               <Label>{t('reminders.group')}</Label>
+               <Input
+                 value={activeGroup?.group_name ?? 'Loading...'}
+                 readOnly
+                 className="h-11 rounded-2xl border-border bg-muted text-muted-foreground"
+               />
+             </div>
             )}
 
             <div className="space-y-2 md:col-span-2">
@@ -234,6 +300,37 @@ export function RemindersPage() {
               />
             </div>
 
+            <div className="md:col-span-2 space-y-4 rounded-3xl border border-dashed border-border p-4 bg-muted/20">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="repeatDaily"
+                  className="size-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  checked={isDaily}
+                  onChange={(e) => setIsDaily(e.target.checked)}
+                />
+                <Label htmlFor="repeatDaily" className="cursor-pointer font-medium">Repeat Daily</Label>
+              </div>
+
+              {isDaily && (
+                <div className="space-y-2 pl-6 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <Label>Times per day</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={timesPerDay}
+                    onChange={(e) => setTimesPerDay(Number(e.target.value))}
+                    className="h-10 rounded-xl"
+                    placeholder="E.g. 5 for prayers"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This will repeat the sequence daily until cancelled.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="md:col-span-2 flex items-center justify-between rounded-2xl bg-muted/70 px-4 py-2.5 text-sm text-muted-foreground">
               <span className="inline-flex items-center gap-2">
                 <CalendarClock className="size-4" />
@@ -245,16 +342,29 @@ export function RemindersPage() {
               </span>
             </div>
 
-            <Button className="md:col-span-2 h-11 rounded-2xl" type="submit" disabled={isSubmitting || !groupId || !text.trim() || !scheduledAt}>
-              <SendHorizontal className="mr-2 size-4" />
-              {isSubmitting ? 'Creating...' : t('reminders.create')}
+            <Button 
+              className={`md:col-span-2 h-11 rounded-2xl transition-colors ${isSuccess ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : ''}`} 
+              type="submit" 
+              disabled={isSubmitting || (targetType === 'group' && selectedGroupIds.length === 0) || !text.trim() || !scheduledAt}
+            >
+              {isSuccess ? (
+                <>
+                  <Check className="mr-2 size-4" />
+                  Reminder Created!
+                </>
+              ) : (
+                <>
+                  <SendHorizontal className="mr-2 size-4" />
+                  {isSubmitting ? 'Creating...' : t('reminders.create')}
+                </>
+              )}
             </Button>
           </div>
         </form>
 
         <section className="rounded-3xl border border-border/80 bg-card p-4 shadow-sm xl:sticky xl:top-4">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-foreground">Created Reminders</h3>
+            <h3 className="text-sm font-semibold text-foreground">Reminders List</h3>
             <Badge variant="secondary">{reminderItems.length}</Badge>
           </div>
 
@@ -266,8 +376,18 @@ export function RemindersPage() {
             {reminderItems.map((item) => (
               <article key={item._id} className="rounded-2xl border border-border/80 bg-card/95 p-3.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-medium text-foreground">{item.text}</p>
+                  <div>
+                    <p className="font-medium text-foreground">{item.text}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold mt-0.5">
+                      {item.target_type === 'all' ? 'System Wide' : `Group: ${groups.find(g => g._id === item.group_id)?.group_name || 'Individual'}`}
+                    </p>
+                  </div>
                   <div className="flex items-center gap-2">
+                    {item.is_daily && (
+                      <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
+                        Daily ({item.times_per_day}x)
+                      </Badge>
+                    )}
                     <Badge className={`border ${getStatusTone(item.status)}`}>{item.status}</Badge>
                     {item.status === 'pending' || item.status === 'active' ? (
                       <Button
@@ -279,9 +399,9 @@ export function RemindersPage() {
                           setIsCancellingId(item._id)
                           try {
                             await cancelReminder(item._id)
-                            const requestSeq = ++loadSeqRef.current
-                            const data = await getReminders(groupId)
-                            if (loadSeqRef.current !== requestSeq) return
+                            const requestSeq = ++loadRemindersSeqRef.current
+                            const data = await getReminders(routeGroupId || undefined)
+                            if (loadRemindersSeqRef.current !== requestSeq) return
                             setItems(data)
                           } finally {
                             setIsCancellingId(null)

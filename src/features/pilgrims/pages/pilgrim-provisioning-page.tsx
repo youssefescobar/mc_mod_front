@@ -1,6 +1,6 @@
 import { AlertCircle, Copy, Download, Plus, QrCode, RefreshCw, Search, Share2, Trash2, Upload } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 
 import { PageHeader } from '@/components/layout/page-header'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -218,11 +218,35 @@ export function PilgrimProvisioningPage() {
 
   const parseExcelRows = async (file: File): Promise<ProvisionPilgrimInput[]> => {
     const buffer = await file.arrayBuffer()
-    const workbook = XLSX.read(buffer)
-    const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, {
-      raw: false,
-      defval: '',
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load(buffer)
+    const worksheet = workbook.worksheets[0]
+    
+    const rows: Record<string, unknown>[] = []
+    
+    // Get headers from first row
+    const headers: string[] = []
+    const headerRow = worksheet.getRow(1)
+    headerRow.eachCell((cell, colNumber) => {
+      headers[colNumber] = String(cell.value || '')
+    })
+
+    // Process data rows
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return // skip header
+      const rowData: Record<string, unknown> = {}
+      row.eachCell((cell, colNumber) => {
+        const header = headers[colNumber]
+        if (header) {
+          // exceljs can return cell value as string, number, date, or object (rich text, formula, etc.)
+          let value = cell.value
+          if (value && typeof value === 'object' && 'result' in value) {
+            value = (value as ExcelJS.CellFormulaValue).result
+          }
+          rowData[header] = value
+        }
+      })
+      rows.push(rowData)
     })
 
     return rows.map((row) => {

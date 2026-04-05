@@ -1,5 +1,6 @@
 import {
   Bell,
+  BellRing,
   Check,
   LayoutDashboard,
   LogOut,
@@ -329,6 +330,11 @@ export function AppShell() {
       to: '/app/pilgrims/provision',
       label: 'Pilgrim Provisioning',
       icon: UserPlus,
+    },
+    {
+      to: '/app/reminders',
+      label: t('nav.reminders') || 'Reminders',
+      icon: BellRing,
     },
   ]
 

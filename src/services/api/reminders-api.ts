@@ -6,11 +6,11 @@ interface RemindersResponse {
   reminders?: ReminderItem[]
 }
 
-export async function getReminders(groupId: string, signal?: AbortSignal): Promise<ReminderItem[]> {
+export async function getReminders(groupId?: string, signal?: AbortSignal): Promise<ReminderItem[]> {
   const { data } = await apiClient.get<ReminderItem[] | RemindersResponse>(
     '/reminders',
     {
-      params: { group_id: groupId },
+      params: groupId ? { group_id: groupId } : {},
       signal,
     },
   )
@@ -27,13 +27,16 @@ export async function getReminders(groupId: string, signal?: AbortSignal): Promi
 }
 
 export async function createReminder(payload: {
-  group_id: string
-  target_type: 'group' | 'pilgrim'
+  group_id?: string
+  group_ids?: string[]
+  target_type: 'group' | 'pilgrim' | 'all' | 'system'
   pilgrim_id?: string
   text: string
   scheduled_at: string
   repeat_count: number
   repeat_interval_min: number
+  is_daily?: boolean
+  times_per_day?: number
 }): Promise<void> {
   await apiClient.post('/reminders', payload)
 }
