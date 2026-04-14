@@ -12,6 +12,22 @@ import * as authApi from '@/services/api/auth-api'
 import { storage } from '@/services/storage'
 import type { AuthUser, LoginPayload } from '@/types/auth'
 
+function isDevAuthBypass(): boolean {
+  return (
+    import.meta.env.DEV &&
+    (import.meta.env.VITE_DEV_AUTH_BYPASS === 'true' ||
+      import.meta.env.VITE_DEV_AUTH_BYPASS === '1')
+  )
+}
+
+/** Local UI preview only; has no valid API token. */
+const DEV_AUTH_BYPASS_USER: AuthUser = {
+  id: 'dev-preview-user',
+  fullName: 'Dev preview',
+  role: 'admin',
+  email: 'dev-preview@local',
+}
+
 interface AuthContextValue {
   user: AuthUser | null
   isLoading: boolean

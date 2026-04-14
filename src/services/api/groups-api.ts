@@ -1,3 +1,4 @@
+import axios from 'axios'
 import { apiClient } from '@/services/api/client'
 import type { GroupDetails, GroupSummary } from '@/types/groups'
 import type {
@@ -40,6 +41,7 @@ interface GroupQrResponse {
 }
 
 type RawGroupSummary = GroupSummary & {
+  id?: string
   pilgrims?: unknown[]
 }
 
@@ -119,27 +121,11 @@ export async function deleteGroup(groupId: string): Promise<void> {
 }
 
 export async function getGroupDetails(groupId: string, signal?: AbortSignal): Promise<GroupDetails> {
-  const { data } = await apiClient.get<GroupDetails | GroupDetailsResponse>(`/groups/${groupId}`, {
+  const { data } = await apiClient.get<GroupDetailsResponse | { data?: GroupDetails }>(`/groups/${groupId}`, {
     signal,
   })
-
-  if (data && typeof data === 'object' && '_id' in data) {
-    return normalizeGroupDetails(data as GroupDetails)
-  }
-
-  if (data && typeof data === 'object' && 'data' in data) {
-    const nested = (data as { data?: GroupDetails }).data
-    if (nested && typeof nested === 'object' && '_id' in nested) {
-      return normalizeGroupDetails(nested)
-    }
-  }
-
-  return {
-    _id: groupId,
-    group_name: 'Unknown Group',
-    group_code: '-',
-    pilgrims: [],
-  }
+  const payload = (data as { data?: GroupDetails })?.data ?? (data as GroupDetails)
+  return normalizeGroupDetails(payload)
 }
 
 export async function getGroupQr(groupId: string): Promise<string | null> {
@@ -285,39 +271,72 @@ export interface GroupResourceOptionBus {
   _id: string
   bus_number: string
   destination: string
-  departure_time: string
+  departure_time?: string
   driver_name?: string
+}
+
+let provisioningApiSupported: boolean | null = null
+
+const emptyProvisioningSummary: PilgrimProvisioningSummary = {
+  total_provisioned: 0,
+  pending_count: 0,
+  activated_count: 0,
+  expired_count: 0,
+  pending_with_visible_token_count: 0,
 }
 
 export async function getGroupResourceOptions(
   groupId: string,
 ): Promise<{ hotels: GroupResourceOptionHotel[]; buses: GroupResourceOptionBus[] }> {
-  const { data } = await apiClient.get(`/groups/${groupId}/resource-options`)
-  const payload = data?.data ?? data ?? {}
+  try {
+    const { data } = await apiClient.get(`/groups/${groupId}/resource-options`)
+    const payload = data?.data ?? data ?? {}
 
-  return {
-    hotels: Array.isArray(payload.hotels) ? payload.hotels : [],
-    buses: Array.isArray(payload.buses) ? payload.buses : [],
+    return {
+      hotels: Array.isArray(payload.hotels) ? payload.hotels : [],
+      buses: Array.isArray(payload.buses) ? payload.buses : [],
+    }
+  } catch (error) {
+    // Older backend might not expose /resource-options yet.
+    // Fall back to /groups/:id and read assigned_* arrays.
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      const group = await getGroupDetails(groupId)
+      return {
+        hotels: Array.isArray(group.assigned_hotel_ids) ? group.assigned_hotel_ids : [],
+        buses: Array.isArray(group.assigned_bus_ids) ? group.assigned_bus_ids : [],
+      }
+    }
+    throw error
   }
 }
 
 export async function getGroupProvisioningStatus(
   groupId: string,
 ): Promise<{ summary: PilgrimProvisioningSummary; items: PilgrimProvisioningLifecycleItem[] }> {
-  const { data } = await apiClient.get(`/auth/groups/${groupId}/provisioning-status`)
-  const payload = data?.data ?? data ?? {}
-
-  const summary = payload.summary ?? {
-    total_provisioned: 0,
-    pending_count: 0,
-    activated_count: 0,
-    expired_count: 0,
-    pending_with_visible_token_count: 0,
+  if (provisioningApiSupported === false) {
+    return { summary: emptyProvisioningSummary, items: [] }
   }
 
-  return {
-    summary,
-    items: Array.isArray(payload.items) ? payload.items : [],
+  try {
+    const { data } = await apiClient.get(`/auth/groups/${groupId}/provisioning-status`)
+    const payload = data?.data ?? data ?? {}
+
+    provisioningApiSupported = true
+    const summary = payload.summary ?? emptyProvisioningSummary
+
+    return {
+      summary,
+      items: Array.isArray(payload.items) ? payload.items : [],
+    }
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      provisioningApiSupported = false
+      return {
+        summary: emptyProvisioningSummary,
+        items: [],
+      }
+    }
+    throw error
   }
 }
 
