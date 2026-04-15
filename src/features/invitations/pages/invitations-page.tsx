@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, MailPlus, SendHorizontal, Users } from 'lucide-react'
+import { AlertCircle, ArrowLeft, CheckCircle2, MailPlus, SendHorizontal, Users, X } from 'lucide-react'
 
 import { PageHeader } from '@/components/layout/page-header'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,6 +33,10 @@ export function InvitationsPage() {
   const [email, setEmail] = useState('')
   const [items, setItems] = useState<InvitationItem[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitStatus, setSubmitStatus] = useState<{
+    type: 'success' | 'error'
+    message: string
+  } | null>(null)
   const loadSeqRef = useRef(0)
   const { t } = useI18n()
 
@@ -93,10 +98,45 @@ export function InvitationsPage() {
     if (!groupId || !email.trim() || isSubmitting) return
 
     setIsSubmitting(true)
+    setSubmitStatus(null)
     try {
       await sendGroupInvitation(groupId, email)
       setEmail('')
+      setSubmitStatus({
+        type: 'success',
+        message: 'Invitation sent successfully! An email has been sent to the invitee.',
+      })
       await loadInvitations()
+    } catch (error: unknown) {
+      let message = 'Failed to send invitation. Please try again.'
+
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string }; status?: number } }
+        const backendMessage = axiosError.response?.data?.message
+
+        if (backendMessage) {
+          // Map specific backend messages to user-friendly ones
+          if (backendMessage.includes('already a moderator')) {
+            message = 'This user is already a moderator of this group.'
+          } else if (backendMessage.includes('already a member')) {
+            message = 'This user is already a member of this group.'
+          } else if (backendMessage.includes('already pending')) {
+            message = 'An invitation is already pending for this email address.'
+          } else if (backendMessage.includes('Group not found')) {
+            message = 'Group not found. Please refresh the page.'
+          } else if (backendMessage.includes('Only group moderators')) {
+            message = 'Only group moderators can send invitations.'
+          } else {
+            message = backendMessage
+          }
+        } else if (axiosError.response?.status === 404) {
+          message = 'The requested resource was not found.'
+        } else if (axiosError.response?.status === 403) {
+          message = 'You do not have permission to send invitations.'
+        }
+      }
+
+      setSubmitStatus({ type: 'error', message })
     } finally {
       setIsSubmitting(false)
     }
@@ -182,6 +222,34 @@ export function InvitationsPage() {
                 {visibleItems.filter((item) => item.status === 'pending').length} pending
               </Badge>
             </div>
+
+            {submitStatus && (
+              <Alert
+                className={`md:col-span-2 ${
+                  submitStatus.type === 'success'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                    : 'border-red-200 bg-red-50 text-red-900'
+                }`}
+              >
+                {submitStatus.type === 'success' ? (
+                  <CheckCircle2 className="size-4 text-emerald-600" />
+                ) : (
+                  <AlertCircle className="size-4 text-red-600" />
+                )}
+                <AlertTitle className="flex items-center justify-between">
+                  {submitStatus.type === 'success' ? 'Success' : 'Error'}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="-mr-2 -mt-2 size-6 hover:bg-transparent"
+                    onClick={() => setSubmitStatus(null)}
+                  >
+                    <X className="size-3" />
+                  </Button>
+                </AlertTitle>
+                <AlertDescription>{submitStatus.message}</AlertDescription>
+              </Alert>
+            )}
 
             <Button type="submit" className="md:col-span-2 h-11 rounded-2xl" disabled={isSubmitting || !groupId || !email.trim()}>
               <SendHorizontal className="mr-2 size-4" />

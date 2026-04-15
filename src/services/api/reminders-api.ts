@@ -44,3 +44,7 @@ export async function createReminder(payload: {
 export async function cancelReminder(id: string): Promise<void> {
   await apiClient.patch(`/reminders/${id}/cancel`)
 }
+
+export async function deleteReminder(id: string): Promise<void> {
+  await apiClient.delete(`/reminders/${id}`)
+}

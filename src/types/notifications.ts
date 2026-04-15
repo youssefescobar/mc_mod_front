@@ -17,11 +17,14 @@ export interface NotificationItem {
 export interface ReminderItem {
   _id: string
   text: string
-  target_type: 'group' | 'pilgrim'
+  target_type: 'group' | 'pilgrim' | 'system' | 'all_groups'
+  group_ids?: string[]
   scheduled_at: string
   repeat_count: number
   repeat_interval_min: number
   status: string
+  is_daily?: boolean
+  times_per_day?: number
 }
 
 export interface InvitationItem {

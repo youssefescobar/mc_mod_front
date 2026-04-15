@@ -1,10 +1,17 @@
-import { ArrowLeft, BellRing, CalendarClock, Check, Repeat2, SendHorizontal } from 'lucide-react'
+import { ArrowLeft, BellRing, CalendarClock, Check, Repeat2, SendHorizontal, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { PageHeader } from '@/components/layout/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -13,6 +20,7 @@ import { getGroupsDashboard } from '@/services/api/groups-api'
 import {
   cancelReminder,
   createReminder,
+  deleteReminder,
   getReminders,
 } from '@/services/api/reminders-api'
 import type { GroupSummary } from '@/types/groups'
@@ -31,8 +39,18 @@ export function RemindersPage() {
   const [timesPerDay, setTimesPerDay] = useState(1)
   const [items, setItems] = useState<ReminderItem[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isSuccess, setIsSuccess] = useState(false)
+  const [submitStatus, setSubmitStatus] = useState<{
+    open: boolean
+    type: 'success' | 'error'
+    title: string
+    message: string
+  }>({ open: false, type: 'success', title: '', message: '' })
   const [isCancellingId, setIsCancellingId] = useState<string | null>(null)
+  const [isDeletingId, setIsDeletingId] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; itemId: string | null }>({
+    open: false,
+    itemId: null,
+  })
   const loadGroupsSeqRef = useRef(0)
   const loadRemindersSeqRef = useRef(0)
   const { t } = useI18n()
@@ -130,8 +148,26 @@ export function RemindersPage() {
       const data = await getReminders(routeGroupId || undefined)
       if (loadRemindersSeqRef.current !== requestSeq) return
       setItems(data)
-      setIsSuccess(true)
-      setTimeout(() => setIsSuccess(false), 3000)
+      setSubmitStatus({
+        open: true,
+        type: 'success',
+        title: 'Reminder Created',
+        message: 'Your reminder has been scheduled successfully.',
+      })
+    } catch (error: unknown) {
+      let message = 'Failed to create reminder. Please try again.'
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string } } }
+        if (axiosError.response?.data?.message) {
+          message = axiosError.response.data.message
+        }
+      }
+      setSubmitStatus({
+        open: true,
+        type: 'error',
+        title: 'Error',
+        message,
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -342,22 +378,13 @@ export function RemindersPage() {
               </span>
             </div>
 
-            <Button 
-              className={`md:col-span-2 h-11 rounded-2xl transition-colors ${isSuccess ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : ''}`} 
-              type="submit" 
+            <Button
+              className="md:col-span-2 h-11 rounded-2xl"
+              type="submit"
               disabled={isSubmitting || (targetType === 'group' && selectedGroupIds.length === 0) || !text.trim() || !scheduledAt}
             >
-              {isSuccess ? (
-                <>
-                  <Check className="mr-2 size-4" />
-                  Reminder Created!
-                </>
-              ) : (
-                <>
-                  <SendHorizontal className="mr-2 size-4" />
-                  {isSubmitting ? 'Creating...' : t('reminders.create')}
-                </>
-              )}
+              <SendHorizontal className="mr-2 size-4" />
+              {isSubmitting ? 'Creating...' : t('reminders.create')}
             </Button>
           </div>
         </form>
@@ -379,7 +406,7 @@ export function RemindersPage() {
                   <div>
                     <p className="font-medium text-foreground">{item.text}</p>
                     <p className="text-[10px] text-muted-foreground uppercase font-bold mt-0.5">
-                      {item.target_type === 'all' ? 'System Wide' : `Group: ${groups.find(g => g._id === item.group_id)?.group_name || 'Individual'}`}
+                      {item.target_type === 'system' || item.target_type === 'all_groups' ? 'System Wide' : `Group: ${groups.find(g => g._id === item.group_ids?.[0])?.group_name || 'Individual'}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -411,6 +438,15 @@ export function RemindersPage() {
                         {t('reminders.cancel')}
                       </Button>
                     ) : null}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                      disabled={isDeletingId === item._id}
+                      onClick={() => setDeleteConfirm({ open: true, itemId: item._id })}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
                   </div>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -421,6 +457,64 @@ export function RemindersPage() {
           </div>
         </section>
       </div>
+
+      <Dialog open={submitStatus.open} onOpenChange={(open) => setSubmitStatus((prev) => ({ ...prev, open }))}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className={submitStatus.type === 'success' ? 'text-emerald-600' : 'text-red-600'}>
+              {submitStatus.title}
+            </DialogTitle>
+            <DialogDescription>{submitStatus.message}</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end">
+            <Button
+              onClick={() => setSubmitStatus((prev) => ({ ...prev, open: false }))}
+              className={submitStatus.type === 'success' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+            >
+              {submitStatus.type === 'success' ? 'Great!' : 'OK'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteConfirm.open} onOpenChange={(open) => setDeleteConfirm({ open, itemId: open ? deleteConfirm.itemId : null })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Delete Reminder?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to permanently delete this reminder? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirm({ open: false, itemId: null })}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={isDeletingId !== null}
+              onClick={async () => {
+                if (!deleteConfirm.itemId || isDeletingId) return
+                setIsDeletingId(deleteConfirm.itemId)
+                try {
+                  await deleteReminder(deleteConfirm.itemId)
+                  const requestSeq = ++loadRemindersSeqRef.current
+                  const data = await getReminders(routeGroupId || undefined)
+                  if (loadRemindersSeqRef.current !== requestSeq) return
+                  setItems(data)
+                } finally {
+                  setIsDeletingId(null)
+                  setDeleteConfirm({ open: false, itemId: null })
+                }
+              }}
+            >
+              {isDeletingId ? 'Deleting...' : 'Delete'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

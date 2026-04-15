@@ -3,6 +3,30 @@ export interface PilgrimInGroup {
   full_name: string
   national_id?: string
   phone_number?: string
+  email?: string
+  age?: number
+  gender?: 'male' | 'female' | 'other'
+  medical_history?: string
+  hotel_name?: string
+  room_number?: string
+  bus_info?: string
+  ethnicity?:
+    | 'Arab'
+    | 'South Asian'
+    | 'Turkic'
+    | 'Persian'
+    | 'Malay/Indonesian'
+    | 'African'
+    | 'Kurdish'
+    | 'Berber'
+    | 'European Muslim'
+    | 'Other'
+  visa?: {
+    visa_number?: string
+    issue_date?: string
+    expiry_date?: string
+    status?: 'pending' | 'issued' | 'rejected' | 'expired' | 'unknown'
+  }
   battery_percent?: number
   is_online?: boolean
   last_active_at?: string
