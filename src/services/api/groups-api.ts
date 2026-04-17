@@ -112,8 +112,12 @@ export async function getGroupsDashboard(signal?: AbortSignal): Promise<GroupSum
   return []
 }
 
-export async function createGroup(group_name: string): Promise<void> {
-  await apiClient.post('/groups/create', { group_name })
+export async function createGroup(group_name: string, check_in_date?: string, check_out_date?: string): Promise<void> {
+  const payload: Record<string, string> = { group_name }
+  if (check_in_date) payload.check_in_date = check_in_date
+  if (check_out_date) payload.check_out_date = check_out_date
+
+  await apiClient.post('/groups/create', payload)
 }
 
 export async function deleteGroup(groupId: string): Promise<void> {
@@ -354,3 +358,4 @@ export async function deleteProvisionedPilgrim(
 ): Promise<void> {
   await apiClient.delete(`/auth/groups/${groupId}/pilgrims/${pilgrimId}`)
 }
+

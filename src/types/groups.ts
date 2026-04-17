@@ -63,6 +63,8 @@ export interface GroupSummary {
   _id: string
   group_name: string
   group_code: string
+  check_in_date?: string
+  check_out_date?: string
   pilgrim_count?: number
   pilgrim_ids?: string[]
   pilgrims?: PilgrimInGroup[]
@@ -74,3 +76,4 @@ export interface GroupSummary {
 export interface GroupDetails extends GroupSummary {
   pilgrims?: PilgrimInGroup[]
 }
+
